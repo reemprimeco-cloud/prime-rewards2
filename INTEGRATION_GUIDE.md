@@ -451,3 +451,117 @@ The codebase is structured to support these future additions without major refac
 ---
 
 *This guide is maintained alongside the Prime Rewards codebase. Update it as integrations are added.*
+
+---
+
+## 10. Vercel Deployment (Alternative Hosting)
+
+> **Note:** The application is already hosted on Manus with built-in custom domain support. This section covers Vercel as an alternative if your team prefers it.
+
+### Step 1 — Export Code to GitHub
+
+In the Manus Management UI, go to **Settings → GitHub** and export the project to a new repository under your GitHub account.
+
+### Step 2 — Import into Vercel
+
+1. Go to [vercel.com](https://vercel.com) and click **Add New Project**
+2. Import the GitHub repository you just created
+3. Set the **Framework Preset** to `Other` (this is a custom Express + Vite app)
+4. Set the **Build Command** to: `pnpm build`
+5. Set the **Output Directory** to: `dist`
+6. Set the **Install Command** to: `pnpm install`
+
+### Step 3 — Environment Variables in Vercel
+
+In Vercel → Project → Settings → Environment Variables, add all variables from Section 6 above, plus the system variables the app requires:
+
+| Variable | Value Source |
+|---|---|
+| `DATABASE_URL` | Your new database connection string (see Supabase section below) |
+| `JWT_SECRET` | Generate a random 64-character string |
+| `VITE_APP_ID` | Your Manus OAuth App ID (or replace with a new auth system) |
+
+### Step 4 — Custom Domain on Vercel
+
+In Vercel → Project → Settings → Domains, add `rewards.primeprint.com.kw`. Vercel will provide a CNAME target. Add this to your DNS registrar:
+
+| Type | Name | Value |
+|---|---|---|
+| CNAME | `rewards` | `cname.vercel-dns.com` |
+
+SSL is provisioned automatically by Vercel.
+
+---
+
+## 11. Supabase Migration (Alternative Backend)
+
+> This section describes how to migrate the current MySQL/Drizzle backend to Supabase PostgreSQL if your team prefers the Supabase ecosystem.
+
+### Database Schema Migration
+
+The current schema uses MySQL syntax. Supabase uses PostgreSQL. The key differences to update in `drizzle/schema.ts`:
+
+| MySQL (Current) | PostgreSQL (Supabase) |
+|---|---|
+| `mysqlTable` | `pgTable` |
+| `mysqlEnum` | `pgEnum` |
+| `int().autoincrement()` | `serial()` |
+| `varchar(n)` | `varchar(n)` (same) |
+| `timestamp` | `timestamp` (same) |
+| `text` | `text` (same) |
+
+**Migration steps:**
+
+1. Install Supabase Drizzle adapter: `pnpm add drizzle-orm/postgres-js postgres`
+2. Update all `import { ... } from "drizzle-orm/mysql-core"` to `"drizzle-orm/pg-core"` in `drizzle/schema.ts`
+3. Replace `mysqlTable` → `pgTable`, `mysqlEnum` → `pgEnum`, `int().autoincrement()` → `serial()`
+4. Run `pnpm drizzle-kit generate` to produce PostgreSQL migration SQL
+5. Apply the migration in Supabase SQL Editor
+
+### Supabase Connection String
+
+In your Supabase project, go to **Settings → Database → Connection string** and copy the **URI** format. Set this as `DATABASE_URL` in your environment.
+
+```
+postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+```
+
+### Supabase Authentication (Phone OTP)
+
+Supabase has built-in phone OTP authentication. Enable it in **Authentication → Providers → Phone**. Connect it to Twilio using the same credentials from Section 2.
+
+The auth flow then becomes:
+
+```typescript
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
+
+// Send OTP
+await supabase.auth.signInWithOtp({ phone: "+96512345678" });
+
+// Verify OTP
+await supabase.auth.verifyOtp({ phone: "+96512345678", token: "123456", type: "sms" });
+```
+
+### Required Supabase Environment Variables
+
+| Variable | Where to Find |
+|---|---|
+| `SUPABASE_URL` | Supabase → Settings → API → Project URL |
+| `SUPABASE_ANON_KEY` | Supabase → Settings → API → anon public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → service_role key (server-side only) |
+| `DATABASE_URL` | Supabase → Settings → Database → Connection string (URI) |
+
+### Cutover Plan
+
+1. Create a new Supabase project at [supabase.com](https://supabase.com)
+2. Apply the migrated schema SQL in the Supabase SQL Editor
+3. Update `DATABASE_URL` in your environment to the Supabase connection string
+4. Update `server/db.ts` to use `drizzle-orm/postgres-js` instead of `drizzle-orm/mysql2`
+5. Test all procedures locally against the Supabase database
+6. Deploy and switch DNS
+
+---
+
+*End of Integration & Deployment Guide*
