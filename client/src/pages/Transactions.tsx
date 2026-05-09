@@ -1,17 +1,27 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import CustomerLayout from "@/components/CustomerLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ArrowUpRight, ArrowDownLeft, Star, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { getLoginUrl } from "@/const";
 
-const TYPE_LABELS: Record<string, string> = {
+const TYPE_LABELS_EN: Record<string, string> = {
   earn: "Points Earned",
   redeem: "Points Redeemed",
   expire: "Points Expired",
   bonus: "Bonus Points",
   manual: "Admin Adjustment",
   referral: "Referral Bonus",
+};
+
+const TYPE_LABELS_AR: Record<string, string> = {
+  earn: "نقاط مكتسبة",
+  redeem: "نقاط مستبدلة",
+  expire: "نقاط منتهية",
+  bonus: "نقاط إضافية",
+  manual: "تعديل إداري",
+  referral: "مكافأة الإحالة",
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -25,6 +35,9 @@ const TYPE_COLORS: Record<string, string> = {
 
 export default function Transactions() {
   const { isAuthenticated } = useAuth();
+  const { t, language, isRTL } = useLanguage();
+  const TYPE_LABELS = language === "ar" ? TYPE_LABELS_AR : TYPE_LABELS_EN;
+
   const { data: transactions, isLoading } = trpc.transactions.history.useQuery(
     { limit: 100 },
     { enabled: isAuthenticated }
@@ -34,8 +47,10 @@ export default function Transactions() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center p-8">
-          <h2 className="text-xl font-bold text-[#1B2A5E] mb-4">Sign in to view transactions</h2>
-          <a href={getLoginUrl()} className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">Sign In</a>
+          <h2 className="text-xl font-bold text-[#1B2A5E] mb-4">
+            {language === "ar" ? "سجّل دخولك لعرض المعاملات" : "Sign in to view transactions"}
+          </h2>
+          <a href={getLoginUrl()} className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">{t.login}</a>
         </div>
       </div>
     );
@@ -43,11 +58,11 @@ export default function Transactions() {
 
   return (
     <CustomerLayout>
-      <div className="md:ml-56">
+      <div className={isRTL ? "md:mr-56" : "md:ml-56"}>
         <div className="prime-gradient text-white px-4 pt-6 pb-12">
           <div className="container max-w-lg">
-            <h1 className="text-2xl font-bold mb-1">Transaction History</h1>
-            <p className="text-white/70 text-sm">All your points activity</p>
+            <h1 className="text-2xl font-bold mb-1">{t.tx_title}</h1>
+            <p className="text-white/70 text-sm">{t.tx_sub}</p>
           </div>
         </div>
 
@@ -60,8 +75,10 @@ export default function Transactions() {
             ) : !transactions || transactions.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <Star size={40} className="mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No transactions yet</p>
-                <p className="text-sm mt-1">Submit your first invoice to start earning!</p>
+                <p className="font-medium">{t.tx_empty}</p>
+                <p className="text-sm mt-1">
+                  {language === "ar" ? "أرسل فاتورتك الأولى لتبدأ بكسب النقاط!" : "Submit your first invoice to start earning!"}
+                </p>
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
@@ -84,8 +101,8 @@ export default function Transactions() {
                           <span className="text-xs text-gray-400">{format(new Date(tx.createdAt), "MMM d, yyyy")}</span>
                         </div>
                       </div>
-                      <span className={`text-sm font-bold ${TYPE_COLORS[tx.type] ?? (isPositive ? "text-green-600" : "text-red-500")}`}>
-                        {isPositive ? "+" : ""}{tx.points} pts
+                      <span className={`text-sm font-bold ${TYPE_COLORS[tx.type] ?? (isPositive ? "text-green-600" : "text-red-500")}`} dir="ltr">
+                        {isPositive ? "+" : ""}{tx.points} {t.points_abbr}
                       </span>
                     </div>
                   );

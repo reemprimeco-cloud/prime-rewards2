@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import CustomerLayout from "@/components/CustomerLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Gift, Star, CheckCircle, Loader2, Tag, Truck, Palette, Zap, Package } from "lucide-react";
 import { useState } from "react";
@@ -27,6 +28,7 @@ const REWARD_COLORS: Record<string, string> = {
 
 export default function RewardsStore() {
   const { isAuthenticated } = useAuth();
+  const { t, language, isRTL } = useLanguage();
   const { data: rewards, isLoading } = trpc.rewards.list.useQuery();
   const { data: customer } = trpc.customer.me.useQuery(undefined, { enabled: isAuthenticated });
   const { data: myRedemptions, refetch: refetchRedemptions } = trpc.rewards.myRedemptions.useQuery(undefined, { enabled: isAuthenticated });
@@ -51,8 +53,10 @@ export default function RewardsStore() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center p-8">
-          <h2 className="text-xl font-bold text-[#1B2A5E] mb-4">Sign in to view rewards</h2>
-          <a href={getLoginUrl()} className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">Sign In</a>
+          <h2 className="text-xl font-bold text-[#1B2A5E] mb-4">
+            {language === "ar" ? "سجّل دخولك لعرض المكافآت" : "Sign in to view rewards"}
+          </h2>
+          <a href={getLoginUrl()} className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">{t.login}</a>
         </div>
       </div>
     );
@@ -60,15 +64,15 @@ export default function RewardsStore() {
 
   return (
     <CustomerLayout>
-      <div className="md:ml-56">
+      <div className={isRTL ? "md:mr-56" : "md:ml-56"}>
         {/* Header */}
         <div className="prime-gradient text-white px-4 pt-6 pb-12">
           <div className="container max-w-2xl">
-            <h1 className="text-2xl font-bold mb-1">Rewards Store</h1>
-            <p className="text-white/70 text-sm">Redeem your points for exclusive PRIME Printing Co. rewards</p>
+            <h1 className="text-2xl font-bold mb-1">{t.rewards_title}</h1>
+            <p className="text-white/70 text-sm">{t.rewards_sub}</p>
             <div className="mt-4 inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2">
               <Star size={16} className="text-yellow-300" />
-              <span className="font-bold">{(customer?.totalPoints ?? 0).toLocaleString()} points available</span>
+              <span className="font-bold">{(customer?.totalPoints ?? 0).toLocaleString()} {t.points_abbr}</span>
             </div>
           </div>
         </div>
@@ -106,7 +110,7 @@ export default function RewardsStore() {
                             <Star size={14} className="text-yellow-400" fill="#FBBF24" />
                             <span className="font-bold text-[#1B2A5E]">{reward.requiredPoints}</span>
                           </div>
-                          <span className="text-xs text-gray-400">points</span>
+                          <span className="text-xs text-gray-400">{t.points_abbr}</span>
                         </div>
                       </div>
                       <h3 className="font-bold text-gray-800 mb-1">{reward.name}</h3>
@@ -121,7 +125,7 @@ export default function RewardsStore() {
                         }`}
                         style={canAfford ? { backgroundColor: color } : {}}
                       >
-                        {canAfford ? "Redeem Now" : `Need ${reward.requiredPoints - (customer?.totalPoints ?? 0)} more pts`}
+                        {canAfford ? t.rewards_redeem : `${language === "ar" ? "تحتاج" : "Need"} ${reward.requiredPoints - (customer?.totalPoints ?? 0)} ${language === "ar" ? "نقطة إضافية" : "more pts"}`}
                       </button>
                     </div>
                   </motion.div>
@@ -133,7 +137,7 @@ export default function RewardsStore() {
           {/* My Redemptions */}
           {myRedemptions && myRedemptions.length > 0 && (
             <div className="mt-6">
-              <h2 className="font-bold text-[#1B2A5E] mb-3">My Redeemed Rewards</h2>
+              <h2 className="font-bold text-[#1B2A5E] mb-3">{language === "ar" ? "مكافآتي المستبدلة" : "My Redeemed Rewards"}</h2>
               <div className="space-y-3">
                 {myRedemptions.map(({ redemption, reward }) => (
                   <div key={redemption.id} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
@@ -174,10 +178,10 @@ export default function RewardsStore() {
               onClick={e => e.stopPropagation()}
             >
               <Gift size={32} className="text-[#5B9BD5] mx-auto mb-3" />
-              <h3 className="text-lg font-bold text-center text-[#1B2A5E] mb-2">Confirm Redemption</h3>
-              <p className="text-gray-500 text-sm text-center mb-6">Are you sure you want to redeem this reward? Points will be deducted immediately.</p>
+              <h3 className="text-lg font-bold text-center text-[#1B2A5E] mb-2">{language === "ar" ? "تأكيد الاستبدال" : "Confirm Redemption"}</h3>
+              <p className="text-gray-500 text-sm text-center mb-6">{language === "ar" ? "هل أنت متأكد من استبدال هذه المكافأة؟ ستُخصم النقاط فوراً." : "Are you sure you want to redeem this reward? Points will be deducted immediately."}</p>
               <div className="flex gap-3">
-                <button onClick={() => setConfirmReward(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold">Cancel</button>
+                <button onClick={() => setConfirmReward(null)} className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold">{t.cancel}</button>
                 <button
                   onClick={() => redeemMutation.mutate({ rewardId: confirmReward })}
                   disabled={redeemMutation.isPending}

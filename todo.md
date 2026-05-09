@@ -60,3 +60,10 @@
 
 ## Phase 6: Integration & Deployment Guide
 - [x] Write comprehensive integration guide (WhatsApp/Twilio, QuickBooks, WooCommerce, Phone OTP, DNS/Vercel, Supabase migration)
+
+## Phase 7: Currency & Language
+- [x] Change all currency to Kuwaiti Dinar (KD)
+- [x] Create LanguageContext with Arabic/English translations
+- [x] Add RTL layout support when Arabic is active
+- [x] Add Arabic/English toggle icon button to CustomerLayout and AdminLayout
+- [x] Translate all pages and components to Arabic

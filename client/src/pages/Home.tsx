@@ -1,42 +1,53 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { motion } from "framer-motion";
 import { Star, Gift, RotateCcw, Shield, ChevronRight, Award, Zap, Users } from "lucide-react";
 import { Link } from "wouter";
 
 const tiers = [
-  { name: "Bronze", min: 0, max: 499, color: "#CD7F32", bg: "bg-amber-100", text: "text-amber-700" },
-  { name: "Silver", min: 500, max: 1999, color: "#94A3B8", bg: "bg-slate-100", text: "text-slate-600" },
-  { name: "Gold", min: 2000, max: 4999, color: "#F59E0B", bg: "bg-yellow-100", text: "text-yellow-700" },
-  { name: "Platinum", min: 5000, max: null, color: "#6366F1", bg: "bg-indigo-100", text: "text-indigo-700" },
-];
-
-const features = [
-  { icon: Star, title: "Earn Points", desc: "Get 1 point for every 10 AED spent on printing orders." },
-  { icon: Gift, title: "Redeem Rewards", desc: "Exchange points for discounts, free services, and more." },
-  { icon: RotateCcw, title: "Spin & Win", desc: "Daily spin wheel with bonus points and exclusive prizes." },
-  { icon: Award, title: "Achievement Badges", desc: "Unlock badges as you reach milestones and level up." },
-  { icon: Zap, title: "Seasonal Campaigns", desc: "Double points and special bonuses during promotions." },
-  { icon: Shield, title: "Secure & Trusted", desc: "Fraud-protected system ensuring fair rewards for all." },
+  { name: "Bronze", nameAr: "برونز", min: 0, max: 499, color: "#CD7F32", bg: "bg-amber-100", text: "text-amber-700" },
+  { name: "Silver", nameAr: "فضي", min: 500, max: 1999, color: "#94A3B8", bg: "bg-slate-100", text: "text-slate-600" },
+  { name: "Gold", nameAr: "ذهبي", min: 2000, max: 4999, color: "#F59E0B", bg: "bg-yellow-100", text: "text-yellow-700" },
+  { name: "Platinum", nameAr: "بلاتيني", min: 5000, max: null, color: "#6366F1", bg: "bg-indigo-100", text: "text-indigo-700" },
 ];
 
 export default function Home() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated } = useAuth();
+  const { t, language, setLanguage, isRTL } = useLanguage();
+
+  const features = [
+    { icon: Star, title: language === "ar" ? "اكسب النقاط" : "Earn Points", desc: language === "ar" ? "احصل على نقطة لكل 10 د.ك تنفقها على طلبات الطباعة." : "Get 1 point for every 10 KD spent on printing orders." },
+    { icon: Gift, title: language === "ar" ? "استبدل المكافآت" : "Redeem Rewards", desc: language === "ar" ? "استبدل نقاطك بخصومات وخدمات مجانية والمزيد." : "Exchange points for discounts, free services, and more." },
+    { icon: RotateCcw, title: language === "ar" ? "عجلة الحظ" : "Spin & Win", desc: language === "ar" ? "عجلة يومية للفوز بنقاط إضافية وجوائز حصرية." : "Daily spin wheel with bonus points and exclusive prizes." },
+    { icon: Award, title: language === "ar" ? "شارات الإنجاز" : "Achievement Badges", desc: language === "ar" ? "افتح الشارات عند الوصول لمعالم مميزة." : "Unlock badges as you reach milestones and level up." },
+    { icon: Zap, title: language === "ar" ? "حملات موسمية" : "Seasonal Campaigns", desc: language === "ar" ? "نقاط مضاعفة ومكافآت خاصة خلال العروض." : "Double points and special bonuses during promotions." },
+    { icon: Shield, title: language === "ar" ? "آمن وموثوق" : "Secure & Trusted", desc: language === "ar" ? "نظام محمي من الاحتيال يضمن مكافآت عادلة للجميع." : "Fraud-protected system ensuring fair rewards for all." },
+  ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white" dir={isRTL ? "rtl" : "ltr"}>
       {/* Header */}
       <header className="bg-[#1B2A5E] text-white">
         <div className="container flex items-center justify-between h-16">
           <img src="/manus-storage/prime-logo_d356d52a.jpg" alt="PRIME Printing Co." className="h-9 w-auto brightness-0 invert" />
           <div className="flex items-center gap-3">
+            {/* Language Toggle */}
+            <button
+              onClick={() => setLanguage(language === "en" ? "ar" : "en")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-sm font-semibold"
+              title={language === "en" ? "Switch to Arabic" : "Switch to English"}
+            >
+              <span className="text-base leading-none">{language === "en" ? "🇰🇼" : "🇬🇧"}</span>
+              <span className="text-white/90 text-xs">{language === "en" ? "العربية" : "EN"}</span>
+            </button>
             {isAuthenticated ? (
               <Link href="/dashboard" className="flex items-center gap-2 bg-[#5B9BD5] text-white px-5 py-2 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity">
-                My Dashboard <ChevronRight size={16} />
+                {t.nav_my_dashboard} <ChevronRight size={16} className={isRTL ? "rotate-180" : ""} />
               </Link>
             ) : (
               <a href={getLoginUrl()} className="bg-[#5B9BD5] text-white px-5 py-2 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity">
-                Sign In
+                {t.login}
               </a>
             )}
           </div>
@@ -57,26 +68,26 @@ export default function Home() {
               transition={{ duration: 0.6 }}
             >
               <span className="inline-block bg-[#5B9BD5]/30 text-[#EBF4FF] text-sm font-semibold px-4 py-1.5 rounded-full mb-4">
-                PRIME Printing Co. Loyalty Program
+                {t.landing_badge}
               </span>
               <h1 className="text-4xl md:text-5xl font-bold leading-tight mb-4">
-                Earn Rewards Every Time You Print
+                {t.landing_headline}
               </h1>
               <p className="text-lg text-white/80 mb-8 leading-relaxed">
-                Join Prime Rewards and turn every printing order into points. Unlock exclusive discounts, free services, and premium perks as you climb from Bronze to Platinum.
+                {t.landing_sub}
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 {isAuthenticated ? (
                   <Link href="/dashboard" className="inline-flex items-center justify-center gap-2 bg-white text-[#1B2A5E] px-8 py-3.5 rounded-xl font-bold text-base hover:bg-gray-100 transition-colors">
-                    Go to Dashboard <ChevronRight size={18} />
+                    {t.landing_cta_dashboard} <ChevronRight size={18} className={isRTL ? "rotate-180" : ""} />
                   </Link>
                 ) : (
                   <a href={getLoginUrl()} className="inline-flex items-center justify-center gap-2 bg-white text-[#1B2A5E] px-8 py-3.5 rounded-xl font-bold text-base hover:bg-gray-100 transition-colors">
-                    Join Now — It's Free <ChevronRight size={18} />
+                    {t.landing_cta_join} <ChevronRight size={18} className={isRTL ? "rotate-180" : ""} />
                   </a>
                 )}
                 <Link href="/rewards" className="inline-flex items-center justify-center gap-2 border-2 border-white/40 text-white px-8 py-3.5 rounded-xl font-semibold text-base hover:bg-white/10 transition-colors">
-                  View Rewards
+                  {t.landing_cta_rewards}
                 </Link>
               </div>
             </motion.div>
@@ -88,16 +99,18 @@ export default function Home() {
       <section className="bg-[#EBF4FF] py-8">
         <div className="container">
           <div className="grid grid-cols-3 gap-4 text-center">
-            {[
-              { value: "1 pt", label: "per 10 AED spent" },
-              { value: "Daily", label: "Spin & Win" },
-              { value: "4 Tiers", label: "Bronze to Platinum" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <div className="text-2xl font-bold text-[#1B2A5E]">{stat.value}</div>
-                <div className="text-sm text-gray-500">{stat.label}</div>
-              </div>
-            ))}
+            <div>
+              <div className="text-2xl font-bold text-[#1B2A5E]">{t.landing_stat_points}</div>
+              <div className="text-sm text-gray-500">{t.landing_stat_points_label}</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#1B2A5E]">{t.landing_stat_spin}</div>
+              <div className="text-sm text-gray-500">{t.landing_stat_spin_label}</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-[#1B2A5E]">{t.landing_stat_tiers}</div>
+              <div className="text-sm text-gray-500">{t.landing_stat_tiers_label}</div>
+            </div>
           </div>
         </div>
       </section>
@@ -106,8 +119,14 @@ export default function Home() {
       <section className="py-16 bg-white">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-[#1B2A5E] mb-3">Everything You Need to Earn More</h2>
-            <p className="text-gray-500 max-w-xl mx-auto">Prime Rewards is designed to reward your loyalty with every order at PRIME Printing Co.</p>
+            <h2 className="text-3xl font-bold text-[#1B2A5E] mb-3">
+              {language === "ar" ? "كل ما تحتاجه لكسب المزيد" : "Everything You Need to Earn More"}
+            </h2>
+            <p className="text-gray-500 max-w-xl mx-auto">
+              {language === "ar"
+                ? "Prime Rewards مصمم لمكافأة ولائك مع كل طلب في PRIME للطباعة."
+                : "Prime Rewards is designed to reward your loyalty with every order at PRIME Printing Co."}
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map(({ icon: Icon, title, desc }, i) => (
@@ -134,8 +153,8 @@ export default function Home() {
       <section className="py-16 bg-gray-50">
         <div className="container">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-[#1B2A5E] mb-3">Membership Tiers</h2>
-            <p className="text-gray-500">The more you print, the higher you climb.</p>
+            <h2 className="text-3xl font-bold text-[#1B2A5E] mb-3">{t.landing_tiers_title}</h2>
+            <p className="text-gray-500">{t.landing_tiers_sub}</p>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {tiers.map((tier, i) => (
@@ -150,7 +169,9 @@ export default function Home() {
                 <div className={`w-14 h-14 rounded-full ${tier.bg} flex items-center justify-center mx-auto mb-3`}>
                   <Award size={26} style={{ color: tier.color }} />
                 </div>
-                <h3 className={`font-bold text-lg mb-1 ${tier.text}`}>{tier.name}</h3>
+                <h3 className={`font-bold text-lg mb-1 ${tier.text}`}>
+                  {language === "ar" ? tier.nameAr : tier.name}
+                </h3>
                 <p className="text-xs text-gray-500">
                   {tier.max ? `${tier.min}–${tier.max} pts` : `${tier.min}+ pts`}
                 </p>
@@ -164,15 +185,15 @@ export default function Home() {
       <section className="py-16 prime-gradient text-white">
         <div className="container text-center">
           <Users size={40} className="mx-auto mb-4 text-white/70" />
-          <h2 className="text-3xl font-bold mb-3">Ready to Start Earning?</h2>
-          <p className="text-white/80 mb-8 max-w-md mx-auto">Join thousands of PRIME Printing Co. customers already enjoying exclusive rewards.</p>
+          <h2 className="text-3xl font-bold mb-3">{t.landing_cta_section_title}</h2>
+          <p className="text-white/80 mb-8 max-w-md mx-auto">{t.landing_cta_section_sub}</p>
           {isAuthenticated ? (
             <Link href="/dashboard" className="inline-flex items-center gap-2 bg-white text-[#1B2A5E] px-10 py-4 rounded-xl font-bold text-base hover:bg-gray-100 transition-colors">
-              Go to My Dashboard <ChevronRight size={18} />
+              {t.landing_cta_dashboard} <ChevronRight size={18} className={isRTL ? "rotate-180" : ""} />
             </Link>
           ) : (
             <a href={getLoginUrl()} className="inline-flex items-center gap-2 bg-white text-[#1B2A5E] px-10 py-4 rounded-xl font-bold text-base hover:bg-gray-100 transition-colors">
-              Get Started Free <ChevronRight size={18} />
+              {t.landing_cta_join} <ChevronRight size={18} className={isRTL ? "rotate-180" : ""} />
             </a>
           )}
         </div>
@@ -182,7 +203,7 @@ export default function Home() {
       <footer className="bg-[#1B2A5E] text-white/60 py-8">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
           <img src="/manus-storage/prime-logo_d356d52a.jpg" alt="PRIME Printing Co." className="h-8 w-auto brightness-0 invert opacity-70" />
-          <p className="text-sm">© 2026 PRIME Printing Co. All rights reserved.</p>
+          <p className="text-sm">{t.landing_footer}</p>
         </div>
       </footer>
     </div>

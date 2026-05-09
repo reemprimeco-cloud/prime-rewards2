@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import AdminLayout from "@/components/AdminLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Shield, AlertTriangle, CheckCircle, XCircle, Loader2, Eye } from "lucide-react";
@@ -19,6 +20,7 @@ const STATUS_CONFIG = {
 };
 
 export default function AdminFraud() {
+  const { t, language } = useLanguage();
   const { data: flags, isLoading, refetch } = trpc.fraud.list.useQuery({ status: "open", limit: 100 });
   const [filter, setFilter] = useState<"open" | "reviewed" | "dismissed">("open");
   const { data: allFlags, refetch: refetchAll } = trpc.fraud.list.useQuery({ limit: 200 });
@@ -162,7 +164,7 @@ export default function AdminFraud() {
             </li>
             <li className="flex items-start gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[#5B9BD5] mt-1.5 flex-shrink-0" />
-              Invoices above 50,000 AED are flagged for manual review
+              {language === "ar" ? "الفواتير التي تتجاوز 50,000 د.ك تُرفع للمراجعة اليدوية" : "Invoices above 50,000 KD are flagged for manual review"}
             </li>
           </ul>
         </div>

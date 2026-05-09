@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import AdminLayout from "@/components/AdminLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Users, Search, Award, Plus, Minus, Loader2, ChevronDown, ChevronUp } from "lucide-react";
@@ -13,6 +14,7 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 export default function AdminCustomers() {
+  const { t, language } = useLanguage();
   const { data: customers, isLoading, refetch } = trpc.admin.customers.useQuery({ limit: 100, offset: 0 });
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -28,7 +30,7 @@ export default function AdminCustomers() {
   const utils = trpc.useUtils();
   const adjustMutation = trpc.admin.adjustPoints.useMutation({
     onSuccess: () => {
-      toast.success("Points adjusted successfully!");
+      toast.success(language === "ar" ? "تم تعديل النقاط بنجاح!" : "Points adjusted successfully!");
       setSelectedId(null);
       setAdjustPoints(0);
       setAdjustReason("");
@@ -49,8 +51,8 @@ export default function AdminCustomers() {
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-[#1B2A5E]">Customers</h2>
-            <p className="text-sm text-gray-500">{customers?.length ?? 0} registered customers</p>
+            <h2 className="text-xl font-bold text-[#1B2A5E]">{t.admin_cust_title}</h2>
+            <p className="text-sm text-gray-500">{customers?.length ?? 0} {language === "ar" ? "عميل مسجّل" : "registered customers"}</p>
           </div>
         </div>
 

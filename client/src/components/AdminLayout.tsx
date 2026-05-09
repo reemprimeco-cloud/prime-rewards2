@@ -1,25 +1,27 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
-  BarChart2, Users, FileText, Gift, Megaphone, Shield, Home, LogOut, Menu, X, Settings
+  BarChart2, Users, FileText, Gift, Megaphone, Shield, Home, LogOut, Menu, Settings
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-
-const adminNav = [
-  { href: "/admin", label: "Overview", icon: BarChart2 },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/invoices", label: "Invoices", icon: FileText },
-  { href: "/admin/rewards", label: "Rewards", icon: Gift },
-  { href: "/admin/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/admin/fraud", label: "Fraud Queue", icon: Shield },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-];
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, loading, logout } = useAuth();
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { t, language, setLanguage, isRTL } = useLanguage();
+
+  const adminNav = [
+    { href: "/admin", label: t.admin_nav_dashboard, icon: BarChart2 },
+    { href: "/admin/customers", label: t.admin_nav_customers, icon: Users },
+    { href: "/admin/invoices", label: t.admin_nav_invoices, icon: FileText },
+    { href: "/admin/rewards", label: t.admin_nav_rewards, icon: Gift },
+    { href: "/admin/campaigns", label: t.admin_nav_campaigns, icon: Megaphone },
+    { href: "/admin/fraud", label: t.admin_nav_fraud, icon: Shield },
+    { href: "/admin/settings", label: t.admin_nav_settings, icon: Settings },
+  ];
 
   if (loading) {
     return (
@@ -31,10 +33,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50" dir={isRTL ? "rtl" : "ltr"}>
         <div className="text-center p-8">
-          <h2 className="text-xl font-bold text-[#1B2A5E] mb-4">Admin access required</h2>
-          <a href={getLoginUrl()} className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">Sign In</a>
+          <h2 className="text-xl font-bold text-[#1B2A5E] mb-4">
+            {language === "ar" ? "مطلوب صلاحيات المسؤول" : "Admin access required"}
+          </h2>
+          <a href={getLoginUrl()} className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">{t.login}</a>
         </div>
       </div>
     );
@@ -42,24 +46,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (user?.role !== "admin") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50" dir={isRTL ? "rtl" : "ltr"}>
         <div className="text-center p-8">
           <Shield size={48} className="text-gray-300 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-700 mb-2">Access Denied</h2>
-          <p className="text-gray-500 mb-4">You don't have admin privileges.</p>
-          <Link href="/dashboard" className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">Go to Dashboard</Link>
+          <h2 className="text-xl font-bold text-gray-700 mb-2">
+            {language === "ar" ? "غير مصرح بالوصول" : "Access Denied"}
+          </h2>
+          <p className="text-gray-500 mb-4">
+            {language === "ar" ? "ليس لديك صلاحيات المسؤول." : "You don't have admin privileges."}
+          </p>
+          <Link href="/dashboard" className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">
+            {language === "ar" ? "الذهاب للوحة التحكم" : "Go to Dashboard"}
+          </Link>
         </div>
       </div>
     );
   }
 
+  const currentLabel = adminNav.find(n => n.href === location)?.label ?? t.admin_panel;
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex" dir={isRTL ? "rtl" : "ltr"}>
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-60 bg-[#1B2A5E] text-white transform transition-transform duration-200 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static lg:flex-shrink-0`}>
+      <aside className={`fixed inset-y-0 z-50 w-60 bg-[#1B2A5E] text-white transform transition-transform duration-200 lg:translate-x-0 lg:static lg:flex-shrink-0
+        ${isRTL ? "right-0" : "left-0"}
+        ${sidebarOpen ? "translate-x-0" : isRTL ? "translate-x-full" : "-translate-x-full"}
+      `}>
         <div className="p-5 border-b border-white/10">
           <img src="/manus-storage/prime-logo_d356d52a.jpg" alt="PRIME" className="h-8 w-auto brightness-0 invert mb-1" />
-          <p className="text-xs text-white/50 font-medium tracking-wider uppercase">Admin Panel</p>
+          <p className="text-xs text-white/50 font-medium tracking-wider uppercase">{t.admin_panel}</p>
         </div>
         <nav className="p-4 space-y-1 flex-1">
           {adminNav.map(({ href, label, icon: Icon }) => {
@@ -89,14 +104,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-white/60 hover:bg-white/10 hover:text-white w-full transition-all text-sm"
           >
             <LogOut size={16} />
-            Sign Out
+            {t.nav_sign_out}
           </button>
           <Link
             href="/dashboard"
             className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-white/60 hover:bg-white/10 hover:text-white w-full transition-all text-sm mt-1"
           >
             <Home size={16} />
-            Customer View
+            {t.admin_back_to_site}
           </Link>
         </div>
       </aside>
@@ -114,10 +129,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Menu size={20} className="text-gray-600" />
           </button>
           <div className="flex-1">
-            <h1 className="text-base font-semibold text-[#1B2A5E]">
-              {adminNav.find(n => n.href === location)?.label ?? "Admin"}
-            </h1>
+            <h1 className="text-base font-semibold text-[#1B2A5E]">{currentLabel}</h1>
           </div>
+          {/* Language Toggle */}
+          <button
+            onClick={() => setLanguage(language === "en" ? "ar" : "en")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EBF4FF] hover:bg-[#d4eaf7] transition-colors text-sm font-semibold"
+            title={language === "en" ? "Switch to Arabic" : "Switch to English"}
+          >
+            <span className="text-base leading-none">{language === "en" ? "🇰🇼" : "🇬🇧"}</span>
+            <span className="text-[#1B2A5E] text-xs">{language === "en" ? "العربية" : "EN"}</span>
+          </button>
           <span className="text-xs bg-[#EBF4FF] text-[#1B2A5E] px-3 py-1 rounded-full font-semibold">Admin</span>
         </header>
 

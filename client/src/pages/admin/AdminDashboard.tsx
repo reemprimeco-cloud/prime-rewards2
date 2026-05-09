@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import AdminLayout from "@/components/AdminLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { motion } from "framer-motion";
 import { Users, FileText, Gift, AlertTriangle, TrendingUp, Clock, Award, BarChart2 } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -12,6 +13,7 @@ const TIER_COLORS = {
 };
 
 export default function AdminDashboard() {
+  const { t, language } = useLanguage();
   const { data: analytics, isLoading } = trpc.admin.analytics.useQuery();
 
   const tierData = analytics?.tierCounts?.map(t => ({
@@ -22,42 +24,42 @@ export default function AdminDashboard() {
 
   const kpis = [
     {
-      label: "Total Customers",
+      label: language === "ar" ? "إجمالي العملاء" : "Total Customers",
       value: analytics?.totalCustomers ?? 0,
       icon: Users,
       color: "#1B2A5E",
       bg: "bg-blue-50",
     },
     {
-      label: "Active (30 days)",
+      label: language === "ar" ? "نشطون (30 يوم)" : "Active (30 days)",
       value: analytics?.activeCustomers ?? 0,
       icon: TrendingUp,
       color: "#10B981",
       bg: "bg-green-50",
     },
     {
-      label: "Approved Invoices",
+      label: language === "ar" ? "فواتير معتمدة" : "Approved Invoices",
       value: analytics?.approvedInvoices ?? 0,
       icon: FileText,
       color: "#5B9BD5",
       bg: "bg-sky-50",
     },
     {
-      label: "Pending Invoices",
+      label: language === "ar" ? "فواتير معلقة" : "Pending Invoices",
       value: analytics?.pendingInvoices ?? 0,
       icon: Clock,
       color: "#F59E0B",
       bg: "bg-yellow-50",
     },
     {
-      label: "Total Redemptions",
+      label: language === "ar" ? "إجمالي الاستبدالات" : "Total Redemptions",
       value: analytics?.totalRedemptions ?? 0,
       icon: Gift,
       color: "#6366F1",
       bg: "bg-indigo-50",
     },
     {
-      label: "Open Fraud Flags",
+      label: language === "ar" ? "تنبيهات الاحتيال" : "Open Fraud Flags",
       value: analytics?.openFraudFlags ?? 0,
       icon: AlertTriangle,
       color: "#EF4444",
@@ -69,8 +71,8 @@ export default function AdminDashboard() {
     <AdminLayout>
       <div className="max-w-5xl mx-auto space-y-6">
         <div>
-          <h2 className="text-xl font-bold text-[#1B2A5E]">Overview</h2>
-          <p className="text-sm text-gray-500">Prime Rewards program analytics</p>
+          <h2 className="text-xl font-bold text-[#1B2A5E]">{language === "ar" ? "نظرة عامة" : "Overview"}</h2>
+          <p className="text-sm text-gray-500">{language === "ar" ? "تحليلات برنامج Prime Rewards" : "Prime Rewards program analytics"}</p>
         </div>
 
         {/* KPI Grid */}

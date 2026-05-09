@@ -1,5 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import CustomerLayout from "@/components/CustomerLayout";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Bell, CheckCheck, Loader2, Gift, Star, AlertTriangle, Zap, Trophy } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ const TYPE_CONFIG: Record<string, { icon: typeof Bell; color: string; bg: string
 };
 
 export default function Notifications() {
+  const { t, language, isRTL } = useLanguage();
   const { data: notifications, isLoading, refetch } = trpc.notifications.list.useQuery();
   const utils = trpc.useUtils();
 
@@ -25,7 +27,7 @@ export default function Notifications() {
     onSuccess: () => {
       refetch();
       utils.notifications.unreadCount.invalidate();
-      toast.success("All notifications marked as read");
+      toast.success(language === "ar" ? "تم تحديد جميع الإشعارات كمقروءة" : "All notifications marked as read");
     },
   });
 
@@ -33,12 +35,12 @@ export default function Notifications() {
 
   return (
     <CustomerLayout>
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className={`max-w-2xl mx-auto px-4 py-6 ${isRTL ? "md:mr-56" : "md:ml-56"}`}>
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-[#1B2A5E]">Notifications</h1>
+            <h1 className="text-xl font-bold text-[#1B2A5E]">{t.notif_title}</h1>
             {unread > 0 && (
-              <p className="text-sm text-gray-500">{unread} unread</p>
+              <p className="text-sm text-gray-500">{unread} {language === "ar" ? "غير مقروء" : "unread"}</p>
             )}
           </div>
           {unread > 0 && (
@@ -48,7 +50,7 @@ export default function Notifications() {
               className="flex items-center gap-2 text-sm text-[#5B9BD5] font-semibold hover:opacity-80"
             >
               <CheckCheck size={16} />
-              Mark all read
+              {t.notif_mark_read}
             </button>
           )}
         </div>
@@ -60,8 +62,8 @@ export default function Notifications() {
         ) : !notifications || notifications.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
             <Bell size={48} className="mx-auto mb-4 text-gray-200" />
-            <h3 className="font-semibold text-gray-500 mb-1">No notifications yet</h3>
-            <p className="text-sm text-gray-400">We'll let you know when something happens with your account.</p>
+            <h3 className="font-semibold text-gray-500 mb-1">{t.notif_empty}</h3>
+            <p className="text-sm text-gray-400">{language === "ar" ? "سنخبرك عند حدوث أي تغيير في حسابك." : "We'll let you know when something happens with your account."}</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
