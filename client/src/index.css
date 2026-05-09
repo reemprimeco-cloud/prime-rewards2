@@ -43,16 +43,25 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
+  /* PRIME Brand Colors */
+  --prime-navy: #1B2A5E;
+  --prime-blue: #5B9BD5;
+  --prime-light: #EBF4FF;
+  --prime-gold: #F59E0B;
+  --prime-silver: #94A3B8;
+  --prime-bronze: #CD7F32;
+  --prime-platinum: #6366F1;
+
+  --primary: oklch(0.27 0.08 264);
+  --primary-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.62 0.1 230);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --chart-1: oklch(0.75 0.1 230);
+  --chart-2: oklch(0.62 0.1 230);
+  --chart-3: oklch(0.5 0.1 264);
+  --chart-4: oklch(0.27 0.08 264);
+  --chart-5: oklch(0.2 0.06 264);
+  --radius: 0.75rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.235 0.015 65);
   --card: oklch(1 0 0);
@@ -63,19 +72,19 @@
   --secondary-foreground: oklch(0.4 0.015 65);
   --muted: oklch(0.967 0.001 286.375);
   --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
+  --accent: oklch(0.62 0.1 230);
+  --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --sidebar: oklch(0.27 0.08 264);
+  --sidebar-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.35 0.09 264);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(0.35 0.09 264);
+  --sidebar-ring: oklch(0.62 0.1 230);
 }
 
 .dark {
@@ -116,10 +125,14 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #5B9BD5; border-radius: 3px; }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
@@ -169,9 +182,31 @@
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1280px;
     }
+  }
+
+  .prime-gradient {
+    background: linear-gradient(135deg, #1B2A5E 0%, #2d4a9e 50%, #5B9BD5 100%);
+  }
+  .prime-card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100;
+  }
+  .bg-prime-navy { background-color: #1B2A5E; }
+  .bg-prime-blue { background-color: #5B9BD5; }
+  .bg-prime-light { background-color: #EBF4FF; }
+  .text-prime-navy { color: #1B2A5E; }
+  .text-prime-blue { color: #5B9BD5; }
+  .border-prime-navy { border-color: #1B2A5E; }
+  .border-prime-blue { border-color: #5B9BD5; }
+
+  @keyframes spin-wheel {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(var(--spin-degrees, 1800deg)); }
+  }
+  .spin-wheel-animate {
+    animation: spin-wheel 4s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards;
   }
 }
