@@ -68,11 +68,11 @@ export default function Home() {
         <div className="container relative z-10">
           <div className="max-w-2xl">
             {/* PRIME logo in hero */}
-            <div className="mb-8">
+            <div className="flex justify-center mb-8">
               <img
                 src="/manus-storage/prime-printing-logo_7a0fdf13.jpg"
                 alt="PRIME Printing Co."
-                className="h-16 md:h-20 w-auto"
+                className="h-24 md:h-32 w-auto brightness-0 invert"
               />
             </div>
             <motion.div
