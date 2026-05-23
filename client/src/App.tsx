@@ -21,6 +21,7 @@ import CustomerLayout from "./components/CustomerLayout";
 import Notifications from "./pages/Notifications";
 import Referral from "./pages/Referral";
 import AdminSettings from "./pages/admin/AdminSettings";
+import InstallPrompt from "./components/InstallPrompt";
 
 function Router() {
   return (
@@ -54,6 +55,7 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Router />
+          <InstallPrompt />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

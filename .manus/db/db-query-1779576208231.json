@@ -1,0 +1,14 @@
+{
+  "query": "SELECT realmId, updatedAt FROM qb_settings ORDER BY updatedAt DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT realmId, updatedAt FROM qb_settings ORDER BY updatedAt DESC LIMIT 1;",
+  "rows": [
+    {
+      "realmId": "9130357945907536",
+      "updatedAt": "2026-05-23 22:42:46"
+    }
+  ],
+  "messages": [],
+  "stdout": "realmId\tupdatedAt\n9130357945907536\t2026-05-23 22:42:46\n",
+  "stderr": "",
+  "execution_time_ms": 1702
+}

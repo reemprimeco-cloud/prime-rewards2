@@ -1,27 +1,28 @@
 {
   "name": "Prime Rewards — PRIME Printing Co.",
   "short_name": "Prime Rewards",
-  "description": "Earn points and redeem rewards with every PRIME Printing Co. order.",
+  "description": "Earn points, unlock rewards, and enjoy exclusive benefits with PRIME Printing Co.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1B2A5E",
   "theme_color": "#1B2A5E",
   "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663573066350/45yCshMdhCKkPUhGJzLrcU/prime-rewards-pwa-icon-192-e3SJLd738p22s9smMbbeuY.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663573066350/45yCshMdhCKkPUhGJzLrcU/prime-rewards-pwa-icon-512-7m5SDmRvCheUTAxZSDzB3i.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "shopping"],
-  "lang": "en",
-  "dir": "ltr"
+  "categories": ["business", "loyalty", "rewards"]
 }

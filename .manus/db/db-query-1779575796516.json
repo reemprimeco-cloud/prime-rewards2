@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, name, email, role, createdAt FROM users ORDER BY createdAt ASC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, name, email, role, createdAt FROM users ORDER BY createdAt ASC LIMIT 20;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Reem Alfaraj",
+      "email": "reemprimeco@gmail.com",
+      "role": "admin",
+      "createdAt": "2026-05-09 13:27:39"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\trole\tcreatedAt\n1\tReem Alfaraj\treemprimeco@gmail.com\tadmin\t2026-05-09 13:27:39\n",
+  "stderr": "",
+  "execution_time_ms": 1705
+}
