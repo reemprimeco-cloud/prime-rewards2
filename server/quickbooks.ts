@@ -264,6 +264,77 @@ export async function lookupQBInvoice(invoiceNumber: string): Promise<QBInvoiceL
   }
 }
 
+/** Look up invoices by customer phone number in QuickBooks */
+export async function lookupQBInvoiceByPhone(phone: string): Promise<QBInvoiceLookupResult[]> {
+  try {
+    const accessToken = await getValidAccessToken();
+    const realmId = await getQBRealmId();
+    const baseUrl = QB_BASE_URLS[ENV.qbEnvironment];
+
+    // Normalize phone: strip spaces, dashes, parens, leading +
+    const normalizedPhone = phone.replace(/[\s\-().+]/g, "");
+
+    // Step 1: Find customers matching this phone
+    const safePhone = normalizedPhone.replace(/['"\\]/g, "");
+    const customerQuery = `SELECT * FROM Customer WHERE PrimaryPhone = '${safePhone}' OR Mobile = '${safePhone}' MAXRESULTS 5`;
+    const customerUrl = `${baseUrl}/v3/company/${realmId}/query?query=${encodeURIComponent(customerQuery)}&minorversion=65`;
+
+    const customerRes = await fetch(customerUrl, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+    });
+
+    if (!customerRes.ok) {
+      const text = await customerRes.text();
+      throw new Error(`QB API error: ${customerRes.status} ${text}`);
+    }
+
+    const customerData = await customerRes.json();
+    const customers = customerData?.QueryResponse?.Customer ?? [];
+
+    if (customers.length === 0) {
+      return [];
+    }
+
+    // Step 2: For each matching customer, find their unpaid/recent invoices
+    const results: QBInvoiceLookupResult[] = [];
+
+    for (const customer of customers.slice(0, 3)) {
+      const safeId = customer.Id.replace(/['"\\]/g, "");
+      const invoiceQuery = `SELECT * FROM Invoice WHERE CustomerRef = '${safeId}' ORDERBY TxnDate DESC MAXRESULTS 5`;
+      const invoiceUrl = `${baseUrl}/v3/company/${realmId}/query?query=${encodeURIComponent(invoiceQuery)}&minorversion=65`;
+
+      const invoiceRes = await fetch(invoiceUrl, {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+      });
+
+      if (!invoiceRes.ok) continue;
+
+      const invoiceData = await invoiceRes.json();
+      const invoices: QBInvoice[] = invoiceData?.QueryResponse?.Invoice ?? [];
+
+      for (const inv of invoices) {
+        let status: QBInvoiceStatus;
+        if (inv.Balance === 0) status = "paid";
+        else if (inv.Balance < inv.TotalAmt) status = "partial";
+        else status = "unpaid";
+
+        results.push({
+          found: true,
+          status,
+          invoice: inv,
+          customerName: inv.CustomerRef?.name ?? customer.DisplayName,
+          totalAmount: inv.TotalAmt,
+        });
+      }
+    }
+
+    return results;
+  } catch (err: any) {
+    console.error("[QB] Phone lookup error:", err?.message);
+    return [];
+  }
+}
+
 /** Check if QuickBooks is fully connected (has realm + refresh token) */
 export function isQBConnected(): boolean {
   return Boolean(

@@ -53,7 +53,7 @@ import {
   notifications,
 } from "../drizzle/schema";
 import { nanoid } from "nanoid";
-import { lookupQBInvoice, isQBConnected } from "./quickbooks";
+import { lookupQBInvoice, lookupQBInvoiceByPhone, isQBConnected } from "./quickbooks";
 
 // Admin guard middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -139,7 +139,58 @@ export const appRouter = router({
       connected: isQBConnected(),
     })),
 
-    // Validate an invoice number against QuickBooks before submitting
+    // Look up invoice by invoice number OR phone — returns invoice details including amount
+    lookup: protectedProcedure
+      .input(z.object({
+        query: z.string().min(1),  // invoice number or phone number
+        type: z.enum(["invoice", "phone"]),
+      }))
+      .mutation(async ({ input }) => {
+        if (!isQBConnected()) {
+          return { found: false, reason: "QB_NOT_CONNECTED", message: "QuickBooks is not connected. Enter amount manually.", invoices: [] };
+        }
+
+        if (input.type === "invoice") {
+          const result = await lookupQBInvoice(input.query);
+          if (!result.found) {
+            return { found: false, reason: "NOT_FOUND", message: result.errorMessage ?? "Invoice not found in QuickBooks.", invoices: [] };
+          }
+          return {
+            found: true,
+            reason: result.status === "unpaid" ? "UNPAID" : "OK",
+            message: result.status === "unpaid"
+              ? "Invoice found but is still unpaid. Points are awarded after payment."
+              : "Invoice verified in QuickBooks.",
+            invoices: [{
+              invoiceNumber: result.invoice!.DocNumber,
+              customerName: result.customerName ?? "",
+              totalAmount: result.totalAmount ?? 0,
+              status: result.status,
+              date: result.invoice!.TxnDate,
+            }],
+          };
+        } else {
+          // Phone lookup — returns multiple invoices
+          const results = await lookupQBInvoiceByPhone(input.query);
+          if (results.length === 0) {
+            return { found: false, reason: "NOT_FOUND", message: "No invoices found for this phone number.", invoices: [] };
+          }
+          return {
+            found: true,
+            reason: "OK",
+            message: `Found ${results.length} invoice(s) for this phone number.`,
+            invoices: results.map(r => ({
+              invoiceNumber: r.invoice!.DocNumber,
+              customerName: r.customerName ?? "",
+              totalAmount: r.totalAmount ?? 0,
+              status: r.status,
+              date: r.invoice!.TxnDate,
+            })),
+          };
+        }
+      }),
+
+    // Validate an invoice number against QuickBooks before submitting (legacy)
     validateQB: protectedProcedure
       .input(z.object({ invoiceNumber: z.string().min(1) }))
       .mutation(async ({ input }) => {
@@ -166,7 +217,7 @@ export const appRouter = router({
     submit: protectedProcedure
       .input(z.object({
         invoiceNumber: z.string().min(1),
-        invoiceAmount: z.number().positive(),
+        invoiceAmount: z.number().positive().optional(),  // optional — auto-filled from QB
         skipQBValidation: z.boolean().optional().default(false),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -176,6 +227,8 @@ export const appRouter = router({
         // QuickBooks validation (if connected)
         let qbValidated = false;
         let qbCustomerName: string | undefined;
+        let resolvedAmount: number = input.invoiceAmount ?? 0;
+
         if (isQBConnected() && !input.skipQBValidation) {
           const qbResult = await lookupQBInvoice(input.invoiceNumber);
           if (!qbResult.found) {
@@ -192,17 +245,24 @@ export const appRouter = router({
           }
           qbValidated = true;
           qbCustomerName = qbResult.customerName;
-          // Use QB amount if customer didn't provide one or if it differs significantly
-          if (qbResult.totalAmount && Math.abs(qbResult.totalAmount - input.invoiceAmount) > 0.5) {
-            input.invoiceAmount = qbResult.totalAmount;
+          // Always use QB amount as the authoritative source
+          if (qbResult.totalAmount) {
+            resolvedAmount = qbResult.totalAmount;
           }
+        }
+
+        if (!resolvedAmount || resolvedAmount <= 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invoice amount could not be determined. Please enter the amount manually.",
+          });
         }
 
         try {
           const invoice = await submitInvoice({
             customerId: customer.id,
             invoiceNumber: input.invoiceNumber,
-            invoiceAmount: input.invoiceAmount,
+            invoiceAmount: resolvedAmount,
             source: qbValidated ? "quickbooks" : "manual",
           });
           return { ...invoice, qbValidated, qbCustomerName };

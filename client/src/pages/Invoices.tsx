@@ -1,347 +1,440 @@
-import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import CustomerLayout from "@/components/CustomerLayout";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  FileText, Plus, Clock, CheckCircle, XCircle, AlertTriangle,
-  Loader2, ShieldCheck, ShieldAlert, ShieldX, Zap
-} from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { getLoginUrl } from "@/const";
+import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  Search, CheckCircle, AlertCircle, Loader2, FileText,
+  Phone, Hash, ChevronRight, Star, ArrowLeft, Shield
+} from "lucide-react";
 
-type QBValidationState = "idle" | "checking" | "valid" | "invalid" | "warning";
+type LookupInvoice = {
+  invoiceNumber: string;
+  customerName: string;
+  totalAmount: number;
+  status: string;
+  date: string;
+};
+
+type LookupMode = "invoice" | "phone";
 
 export default function Invoices() {
-  const { isAuthenticated } = useAuth();
-  const { t, language, isRTL } = useLanguage();
-  const { data: myInvoices, isLoading, refetch } = trpc.invoices.myInvoices.useQuery(
-    { limit: 50 },
-    { enabled: isAuthenticated }
-  );
-  const { data: qbStatus } = trpc.invoices.qbStatus.useQuery();
+  const { t, isRTL } = useLanguage();
 
-  const [showForm, setShowForm] = useState(false);
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [invoiceAmount, setInvoiceAmount] = useState("");
-  const [qbState, setQbState] = useState<QBValidationState>("idle");
-  const [qbMessage, setQbMessage] = useState("");
-  const [qbCustomerName, setQbCustomerName] = useState("");
-  const [qbAmount, setQbAmount] = useState<number | null>(null);
+  const [mode, setMode] = useState<LookupMode>("invoice");
+  const [query, setQuery] = useState("");
+  const [lookupResult, setLookupResult] = useState<{
+    found: boolean;
+    reason: string;
+    message: string;
+    invoices: LookupInvoice[];
+  } | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<LookupInvoice | null>(null);
+  const [manualAmount, setManualAmount] = useState("");
+  const [step, setStep] = useState<"search" | "select" | "confirm" | "success">("search");
+  const [earnedPoints, setEarnedPoints] = useState(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const STATUS_CONFIG = {
-    pending: { icon: Clock, color: "text-yellow-600", bg: "bg-yellow-50", label: t.invoice_status_pending },
-    approved: { icon: CheckCircle, color: "text-green-600", bg: "bg-green-50", label: t.invoice_status_approved },
-    rejected: { icon: XCircle, color: "text-red-500", bg: "bg-red-50", label: t.invoice_status_rejected },
-    flagged: { icon: AlertTriangle, color: "text-orange-500", bg: "bg-orange-50", label: t.invoice_status_flagged },
-  };
+  const qbStatusQuery = trpc.invoices.qbStatus.useQuery();
+  const qbConnected = qbStatusQuery.data?.connected ?? false;
 
-  const SOURCE_LABELS: Record<string, string> = {
-    quickbooks: language === "ar" ? "كويك بوكس ✓" : "QuickBooks ✓",
-    woocommerce: "WooCommerce ✓",
-    manual: language === "ar" ? "يدوي" : "Manual",
-  };
-
-  const validateQBMutation = trpc.invoices.validateQB.useMutation({
-    onSuccess: (data) => {
-      if (data.validated) {
-        setQbState("valid");
-        setQbMessage(data.message);
-        setQbCustomerName(data.customerName ?? "");
-        if (data.totalAmount) {
-          setQbAmount(data.totalAmount);
-          setInvoiceAmount(String(data.totalAmount));
-        }
-      } else if (data.reason === "QB_NOT_CONNECTED") {
-        setQbState("warning");
-        setQbMessage(data.message);
-      } else {
-        setQbState("invalid");
-        setQbMessage(data.message);
+  const lookupMutation = trpc.invoices.lookup.useMutation({
+    onSuccess: (data: { found: boolean; reason: string; message: string; invoices: LookupInvoice[] }) => {
+      setLookupResult(data);
+      if (data.found && data.invoices.length === 1) {
+        setSelectedInvoice(data.invoices[0]);
+        setStep("confirm");
+      } else if (data.found && data.invoices.length > 1) {
+        setStep("select");
       }
     },
-    onError: () => {
-      setQbState("warning");
-      setQbMessage(language === "ar" ? "تعذّر التحقق من كويك بوكس. يمكنك المتابعة يدوياً." : "Could not verify with QuickBooks. You may proceed manually.");
-    },
+    onError: (err: { message: string }) => toast.error(err.message),
   });
 
   const submitMutation = trpc.invoices.submit.useMutation({
-    onSuccess: (data) => {
-      const msg = data.qbValidated
-        ? (language === "ar" ? "تم التحقق من الفاتورة عبر كويك بوكس وإرسالها بنجاح!" : "Invoice verified via QuickBooks and submitted!")
-        : t.invoice_success;
-      toast.success(msg);
-      setInvoiceNumber("");
-      setInvoiceAmount("");
-      setShowForm(false);
-      setQbState("idle");
-      setQbMessage("");
-      setQbCustomerName("");
-      setQbAmount(null);
-      refetch();
+    onSuccess: (data: { pointsEarned?: number }) => {
+      setEarnedPoints(data.pointsEarned ?? 0);
+      setStep("success");
+      toast.success(`Invoice submitted! You earned ${data.pointsEarned ?? 0} points.`);
     },
-    onError: (err) => toast.error(err.message),
+    onError: (err: { message: string }) => toast.error(err.message),
   });
 
-  // Auto-validate when invoice number is entered (debounced)
-  useEffect(() => {
-    if (!invoiceNumber.trim() || invoiceNumber.length < 3) {
-      setQbState("idle");
-      setQbMessage("");
-      setQbCustomerName("");
-      setQbAmount(null);
+  const handleSearch = () => {
+    if (!query.trim()) return;
+    setLookupResult(null);
+    setSelectedInvoice(null);
+    lookupMutation.mutate({ query: query.trim(), type: mode });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSearch();
+  };
+
+  const handleSelectInvoice = (inv: LookupInvoice) => {
+    setSelectedInvoice(inv);
+    setStep("confirm");
+  };
+
+  const handleConfirmSubmit = () => {
+    if (!selectedInvoice) return;
+    const amount = selectedInvoice.totalAmount > 0
+      ? selectedInvoice.totalAmount
+      : parseFloat(manualAmount);
+    if (!amount || amount <= 0) {
+      toast.error("Please enter the invoice amount.");
       return;
     }
-    const timer = setTimeout(() => {
-      setQbState("checking");
-      validateQBMutation.mutate({ invoiceNumber: invoiceNumber.trim() });
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [invoiceNumber]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!invoiceNumber.trim() || !invoiceAmount) return;
     submitMutation.mutate({
-      invoiceNumber: invoiceNumber.trim(),
-      invoiceAmount: parseFloat(invoiceAmount),
-      skipQBValidation: qbState === "warning",
+      invoiceNumber: selectedInvoice.invoiceNumber,
+      invoiceAmount: amount,
     });
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center p-8">
-          <h2 className="text-xl font-bold text-[#1B2A5E] mb-4">
-            {language === "ar" ? "سجّل دخولك لإرسال الفواتير" : "Sign in to submit invoices"}
-          </h2>
-          <a href={getLoginUrl()} className="inline-block bg-[#1B2A5E] text-white px-8 py-3 rounded-xl font-semibold">{t.login}</a>
-        </div>
-      </div>
-    );
-  }
+  const handleReset = () => {
+    setQuery("");
+    setLookupResult(null);
+    setSelectedInvoice(null);
+    setManualAmount("");
+    setStep("search");
+    setEarnedPoints(0);
+  };
 
-  const qbConnected = qbStatus?.connected ?? false;
+  const pointsPreview = selectedInvoice?.totalAmount
+    ? Math.floor(selectedInvoice.totalAmount / 10)
+    : manualAmount
+      ? Math.floor(parseFloat(manualAmount) / 10)
+      : 0;
+
+  const statusColor = (status: string) => {
+    if (status === "paid") return "text-green-600 bg-green-50";
+    if (status === "partial") return "text-amber-600 bg-amber-50";
+    return "text-red-600 bg-red-50";
+  };
+
+  const statusLabel = (status: string) => {
+    if (status === "paid") return "Paid ✓";
+    if (status === "partial") return "Partially Paid";
+    return "Unpaid";
+  };
 
   return (
     <CustomerLayout>
-      <div className={isRTL ? "md:mr-56" : "md:ml-56"}>
-        <div className="prime-gradient text-white px-4 pt-6 pb-12">
-          <div className="container max-w-lg flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold mb-1">{t.invoice_title}</h1>
-              <p className="text-white/70 text-sm">{t.invoice_sub}</p>
-            </div>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-2 bg-white text-[#1B2A5E] px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-gray-100 transition-colors"
-            >
-              <Plus size={16} />
-              {t.invoice_submit}
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          {step !== "search" && (
+            <button onClick={handleReset} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+              <ArrowLeft size={18} className="text-[#1B2A5E]" />
             </button>
+          )}
+          <div>
+            <h2 className="text-xl font-bold text-[#1B2A5E]">Submit Invoice</h2>
+            <p className="text-sm text-gray-500">Earn points from your PRIME Printing Co. invoices</p>
           </div>
         </div>
 
-        <div className="container max-w-lg -mt-8 pb-6 space-y-4">
-          {/* Submit Form */}
-          <AnimatePresence>
-            {showForm && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
-              >
-                {/* QB status badge */}
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-[#1B2A5E]">{t.invoice_title}</h3>
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${qbConnected ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                    {qbConnected ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
-                    {qbConnected
-                      ? (language === "ar" ? "كويك بوكس متصل" : "QuickBooks Connected")
-                      : (language === "ar" ? "مراجعة يدوية" : "Manual Review")}
-                  </div>
-                </div>
+        {/* QB Status Badge */}
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+          qbConnected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+        }`}>
+          <Shield size={12} />
+          {qbConnected ? "QuickBooks Connected — Auto-verified" : "Manual Review Mode"}
+        </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1.5 block font-medium">{t.invoice_number_label} *</label>
-                    <div className="relative">
-                      <input
-                        value={invoiceNumber}
-                        onChange={e => setInvoiceNumber(e.target.value)}
-                        placeholder={t.invoice_number_placeholder}
-                        required
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#5B9BD5] focus:ring-1 focus:ring-[#5B9BD5] pr-10"
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        {qbState === "checking" && <Loader2 size={16} className="animate-spin text-gray-400" />}
-                        {qbState === "valid" && <ShieldCheck size={16} className="text-green-500" />}
-                        {qbState === "invalid" && <ShieldX size={16} className="text-red-500" />}
-                        {qbState === "warning" && <ShieldAlert size={16} className="text-yellow-500" />}
-                      </div>
-                    </div>
+        {/* ── STEP: SEARCH ── */}
+        {step === "search" && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
 
-                    {/* QB validation feedback */}
-                    <AnimatePresence>
-                      {qbState !== "idle" && qbState !== "checking" && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className={`mt-2 px-3 py-2 rounded-lg text-xs font-medium flex items-start gap-2 ${
-                            qbState === "valid" ? "bg-green-50 text-green-700" :
-                            qbState === "invalid" ? "bg-red-50 text-red-600" :
-                            "bg-yellow-50 text-yellow-700"
-                          }`}
-                        >
-                          {qbState === "valid" && <ShieldCheck size={13} className="flex-shrink-0 mt-0.5" />}
-                          {qbState === "invalid" && <ShieldX size={13} className="flex-shrink-0 mt-0.5" />}
-                          {qbState === "warning" && <ShieldAlert size={13} className="flex-shrink-0 mt-0.5" />}
-                          <div>
-                            <p>{qbMessage}</p>
-                            {qbCustomerName && (
-                              <p className="mt-0.5 opacity-80">
-                                {language === "ar" ? "العميل:" : "Customer:"} {qbCustomerName}
-                              </p>
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-600 mb-1.5 block font-medium">{t.invoice_amount_label} *</label>
-                    <input
-                      type="number"
-                      value={invoiceAmount}
-                      onChange={e => setInvoiceAmount(e.target.value)}
-                      placeholder={t.invoice_amount_placeholder}
-                      min="1"
-                      step="0.001"
-                      required
-                      className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#5B9BD5] focus:ring-1 focus:ring-[#5B9BD5] ${qbAmount ? "border-green-300 bg-green-50/30" : "border-gray-200"}`}
-                    />
-                    {invoiceAmount && parseFloat(invoiceAmount) > 0 && (
-                      <p className="text-xs text-[#5B9BD5] mt-1.5 flex items-center gap-1">
-                        <Zap size={11} />
-                        {language === "ar"
-                          ? `ستكسب تقريباً ${Math.floor(parseFloat(invoiceAmount) / 10)} نقطة`
-                          : `You'll earn approximately ${Math.floor(parseFloat(invoiceAmount) / 10)} points`}
-                        {qbAmount && <span className="text-green-600 ml-1">{language === "ar" ? "(مُتحقق من كويك بوكس)" : "(verified from QuickBooks)"}</span>}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => { setShowForm(false); setQbState("idle"); }}
-                      className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm"
-                    >
-                      {t.cancel}
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitMutation.isPending || qbState === "invalid"}
-                      className="flex-1 py-3 rounded-xl bg-[#1B2A5E] text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {submitMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
-                      {t.invoice_submit}
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Info Banner */}
-          <div className="bg-[#EBF4FF] rounded-xl p-4 flex gap-3">
-            <FileText size={18} className="text-[#5B9BD5] flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-[#1B2A5E]">
-                {language === "ar" ? "كيف يعمل" : "How it works"}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">{t.invoice_tip}</p>
-              {qbConnected && (
-                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                  <ShieldCheck size={11} />
-                  {language === "ar" ? "التحقق التلقائي عبر كويك بوكس مفعّل" : "Automatic QuickBooks verification is active"}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Invoice List */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 size={32} className="animate-spin text-[#5B9BD5]" />
-              </div>
-            ) : !myInvoices || myInvoices.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <FileText size={40} className="mx-auto mb-3 opacity-30" />
-                <p className="font-medium">{t.invoice_empty}</p>
+            {/* Mode Toggle */}
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+              {(["invoice", "phone"] as LookupMode[]).map((m) => (
                 <button
-                  onClick={() => setShowForm(true)}
-                  className="mt-4 inline-flex items-center gap-2 bg-[#1B2A5E] text-white px-6 py-2.5 rounded-xl font-semibold text-sm"
+                  key={m}
+                  onClick={() => { setMode(m); setQuery(""); setLookupResult(null); }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                    mode === m ? "bg-white text-[#1B2A5E] shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
                 >
-                  <Plus size={16} />
-                  {t.invoice_submit}
+                  {m === "invoice" ? <Hash size={14} /> : <Phone size={14} />}
+                  {m === "invoice" ? "Invoice No." : "Phone Number"}
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div>
+              <label className="text-sm font-semibold text-[#1B2A5E] mb-2 block">
+                {mode === "invoice" ? "Enter Invoice Number" : "Enter Phone Number"}
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={mode === "invoice" ? "e.g. 1038" : "e.g. +96512345678"}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#5B9BD5] focus:ring-2 focus:ring-[#5B9BD5]/20 pr-10"
+                    dir={mode === "phone" ? "ltr" : undefined}
+                  />
+                  {lookupMutation.isPending && (
+                    <Loader2 size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-gray-400" />
+                  )}
+                </div>
+                <button
+                  onClick={handleSearch}
+                  disabled={!query.trim() || lookupMutation.isPending}
+                  className="px-5 py-3 bg-[#1B2A5E] text-white rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2 transition-opacity"
+                >
+                  <Search size={16} />
+                  Search
                 </button>
               </div>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {myInvoices.map((inv) => {
-                  const status = STATUS_CONFIG[inv.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.pending;
-                  const StatusIcon = status.icon;
-                  return (
-                    <div key={inv.id} className="px-5 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-800 text-sm">#{inv.invoiceNumber}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{format(new Date(inv.submittedAt), "MMM d, yyyy · h:mm a")}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-[#1B2A5E] text-sm">
-                            {parseFloat(String(inv.invoiceAmount)).toLocaleString()} {t.currency}
-                          </p>
-                          {inv.status === "approved" && (
-                            <p className="text-xs text-green-600 font-medium">+{inv.pointsEarned} {t.points_abbr}</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${status.bg} ${status.color}`}>
-                          <StatusIcon size={12} />
-                          {status.label}
-                        </div>
-                        {inv.multiplierApplied > 1 && (
-                          <span className="text-xs bg-[#EBF4FF] text-[#5B9BD5] px-2 py-1 rounded-full font-medium">
-                            {inv.multiplierApplied}x {language === "ar" ? "مكافأة" : "bonus"}
-                          </span>
-                        )}
-                        {(inv as any).source && (inv as any).source !== "manual" && (
-                          <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full font-medium">
-                            {SOURCE_LABELS[(inv as any).source] ?? (inv as any).source}
-                          </span>
-                        )}
-                      </div>
-                      {inv.rejectionReason && (
-                        <p className="text-xs text-red-400 mt-2 bg-red-50 px-3 py-2 rounded-lg">{inv.rejectionReason}</p>
-                      )}
-                    </div>
-                  );
-                })}
+              <p className="text-xs text-gray-400 mt-2">
+                {mode === "invoice"
+                  ? "Enter the invoice number from your PRIME Printing Co. invoice"
+                  : "Enter the phone number registered with PRIME Printing Co."}
+              </p>
+            </div>
+
+            {/* Lookup Error */}
+            {lookupResult && !lookupResult.found && (
+              <div className="flex items-start gap-3 p-4 bg-red-50 rounded-xl border border-red-100">
+                <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-red-700">Not Found</p>
+                  <p className="text-xs text-red-600 mt-0.5">{lookupResult.message}</p>
+                  {lookupResult.reason === "QB_NOT_CONNECTED" && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      You can still submit manually — enter the invoice number and amount below.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
+
+            {/* Manual fallback when QB not connected */}
+            {lookupResult?.reason === "QB_NOT_CONNECTED" && (
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                <p className="text-sm font-semibold text-[#1B2A5E]">Manual Submission</p>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Invoice Amount (KD)</label>
+                  <input
+                    type="number"
+                    value={manualAmount}
+                    onChange={(e) => setManualAmount(e.target.value)}
+                    placeholder="e.g. 150.000"
+                    step="0.001"
+                    min="0"
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#5B9BD5]"
+                  />
+                </div>
+                {manualAmount && parseFloat(manualAmount) > 0 && (
+                  <div className="flex items-center gap-2 p-3 bg-[#EBF4FF] rounded-xl">
+                    <Star size={14} className="text-[#5B9BD5]" />
+                    <p className="text-sm text-[#1B2A5E]">
+                      You will earn <span className="font-bold">{Math.floor(parseFloat(manualAmount) / 10)} points</span>
+                    </p>
+                  </div>
+                )}
+                <button
+                  onClick={() => {
+                    if (!query.trim() || !manualAmount || parseFloat(manualAmount) <= 0) {
+                      toast.error("Please enter both invoice number and amount.");
+                      return;
+                    }
+                    setSelectedInvoice({
+                      invoiceNumber: query.trim(),
+                      customerName: "",
+                      totalAmount: parseFloat(manualAmount),
+                      status: "manual",
+                      date: new Date().toISOString().split("T")[0],
+                    });
+                    setStep("confirm");
+                  }}
+                  className="w-full py-3 bg-[#1B2A5E] text-white rounded-xl text-sm font-semibold hover:opacity-90"
+                >
+                  Continue to Submit
+                </button>
+              </div>
+            )}
+
+            {/* How it works */}
+            <div className="p-4 bg-[#F0F7FF] rounded-xl">
+              <p className="text-xs font-semibold text-[#1B2A5E] mb-2">How it works</p>
+              <div className="space-y-1.5">
+                {[
+                  "Enter your invoice number or phone number",
+                  "System finds your invoice and amount automatically",
+                  "Earn 1 point for every 10 KD spent",
+                  "Redeem points for discounts and free services",
+                ].map((step, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className="w-4 h-4 rounded-full bg-[#1B2A5E] text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">{i + 1}</div>
+                    {step}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ── STEP: SELECT (multiple invoices from phone lookup) ── */}
+        {step === "select" && lookupResult && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <div>
+              <h3 className="font-bold text-[#1B2A5E]">Select Invoice</h3>
+              <p className="text-sm text-gray-500">{lookupResult.message}</p>
+            </div>
+            <div className="space-y-3">
+              {lookupResult.invoices.map((inv) => (
+                <button
+                  key={inv.invoiceNumber}
+                  onClick={() => handleSelectInvoice(inv)}
+                  className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-[#5B9BD5] hover:bg-[#F0F7FF] transition-all group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <FileText size={14} className="text-[#5B9BD5]" />
+                        <span className="font-semibold text-[#1B2A5E] text-sm">Invoice #{inv.invoiceNumber}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(inv.status)}`}>
+                          {statusLabel(inv.status)}
+                        </span>
+                      </div>
+                      {inv.customerName && (
+                        <p className="text-xs text-gray-500">{inv.customerName}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-0.5">{inv.date}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-[#1B2A5E]">{inv.totalAmount.toFixed(3)} KD</p>
+                      <p className="text-xs text-[#5B9BD5]">{Math.floor(inv.totalAmount / 10)} pts</p>
+                      <ChevronRight size={16} className="text-gray-400 group-hover:text-[#5B9BD5] mt-1 ml-auto" />
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP: CONFIRM ── */}
+        {step === "confirm" && selectedInvoice && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <div>
+              <h3 className="font-bold text-[#1B2A5E]">Confirm Submission</h3>
+              <p className="text-sm text-gray-500">Review the invoice details before earning your points</p>
+            </div>
+
+            {/* Invoice Card */}
+            <div className="bg-[#F0F7FF] rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText size={16} className="text-[#5B9BD5]" />
+                <span className="font-bold text-[#1B2A5E]">Invoice #{selectedInvoice.invoiceNumber}</span>
+                {selectedInvoice.status !== "manual" && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(selectedInvoice.status)}`}>
+                    {statusLabel(selectedInvoice.status)}
+                  </span>
+                )}
+              </div>
+              {selectedInvoice.customerName && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Customer</span>
+                  <span className="font-semibold text-[#1B2A5E]">{selectedInvoice.customerName}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Amount</span>
+                <span className="font-bold text-[#1B2A5E] text-lg">
+                  {selectedInvoice.totalAmount > 0
+                    ? `${selectedInvoice.totalAmount.toFixed(3)} KD`
+                    : "—"}
+                </span>
+              </div>
+              {selectedInvoice.date && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Date</span>
+                  <span className="text-[#1B2A5E]">{selectedInvoice.date}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Manual amount if QB not connected */}
+            {selectedInvoice.totalAmount === 0 && (
+              <div>
+                <label className="text-sm font-semibold text-[#1B2A5E] mb-2 block">Invoice Amount (KD) *</label>
+                <input
+                  type="number"
+                  value={manualAmount}
+                  onChange={(e) => setManualAmount(e.target.value)}
+                  placeholder="e.g. 150.000"
+                  step="0.001"
+                  min="0"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#5B9BD5]"
+                />
+              </div>
+            )}
+
+            {/* Points Preview */}
+            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#1B2A5E] to-[#5B9BD5] rounded-xl text-white">
+              <div className="flex items-center gap-2">
+                <Star size={18} className="text-yellow-300" />
+                <span className="font-semibold">Points You'll Earn</span>
+              </div>
+              <span className="text-2xl font-bold">{pointsPreview}</span>
+            </div>
+
+            {selectedInvoice.status === "unpaid" && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <AlertCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700">This invoice is unpaid. It will go to admin review before points are awarded.</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleReset}
+                className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSubmit}
+                disabled={submitMutation.isPending || (selectedInvoice.totalAmount === 0 && (!manualAmount || parseFloat(manualAmount) <= 0))}
+                className="flex-1 py-3 bg-[#1B2A5E] text-white rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {submitMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
+                Submit Invoice
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── STEP: SUCCESS ── */}
+        {step === "success" && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
+              <CheckCircle size={32} className="text-green-500" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-[#1B2A5E]">Invoice Submitted!</h3>
+              <p className="text-sm text-gray-500 mt-1">Your invoice has been received and is being processed.</p>
+            </div>
+            <div className="bg-gradient-to-r from-[#1B2A5E] to-[#5B9BD5] rounded-xl p-5 text-white">
+              <p className="text-sm opacity-80 mb-1">Points Earned</p>
+              <p className="text-4xl font-bold">+{earnedPoints}</p>
+              <p className="text-sm opacity-80 mt-1">points added to your account</p>
+            </div>
+            <button
+              onClick={handleReset}
+              className="w-full py-3 bg-[#1B2A5E] text-white rounded-xl text-sm font-semibold hover:opacity-90"
+            >
+              Submit Another Invoice
+            </button>
+          </div>
+        )}
       </div>
     </CustomerLayout>
   );

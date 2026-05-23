@@ -80,12 +80,19 @@ export function registerQBRoutes(app: Express) {
       const db = await getDb();
       let dbRealmId: string | null = null;
       let connectedAt: Date | null = null;
+      let tokenExpired = false;
 
       if (db) {
         const rows = await db.select().from(qbSettings).orderBy(desc(qbSettings.updatedAt)).limit(1);
         if (rows.length > 0) {
           dbRealmId = rows[0].realmId;
           connectedAt = rows[0].updatedAt ?? null;
+          // Check if refresh token itself is expired (QB refresh tokens last ~100 days)
+          // We detect this by checking if the row was updated more than 90 days ago
+          if (connectedAt) {
+            const daysSinceUpdate = (Date.now() - connectedAt.getTime()) / (1000 * 60 * 60 * 24);
+            if (daysSinceUpdate > 90) tokenExpired = true;
+          }
           // Restore env vars from DB on server restart
           if (dbRealmId && !process.env.QUICKBOOKS_REALM_ID) {
             process.env.QUICKBOOKS_REALM_ID = dbRealmId;
@@ -101,12 +108,30 @@ export function registerQBRoutes(app: Express) {
       res.json({
         configured: isQBConfigured(),
         connected: isQBConnected() || Boolean(realmId),
+        tokenExpired,
         realmId,
         environment: ENV.qbEnvironment,
         connectedAt,
       });
     } catch (err: any) {
       res.json({ configured: isQBConfigured(), connected: false, error: err?.message });
+    }
+  });
+
+  // ── Disconnect: clear stored tokens (forces re-auth) ─────────────────────
+  app.post("/api/qb/disconnect", async (_req, res) => {
+    try {
+      const db = await getDb();
+      if (db) {
+        // Clear all QB settings rows
+        await db.delete(qbSettings);
+      }
+      // Clear env vars
+      delete process.env.QUICKBOOKS_REALM_ID;
+      delete process.env.QUICKBOOKS_REFRESH_TOKEN;
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
     }
   });
 }

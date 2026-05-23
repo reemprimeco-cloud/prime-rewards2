@@ -79,3 +79,12 @@
 - [x] Add QB connection status + Connect button in Admin Settings
 - [x] Show QB validation result in invoice submission UI (customer-facing)
 - [x] Save checkpoint
+
+## Phase 9: Invoice Lookup Improvements
+- [ ] Support invoice lookup by Invoice Number OR phone number in QB
+- [ ] Auto-fetch invoice amount from QuickBooks (remove manual amount field)
+- [ ] Show fetched invoice details (amount, customer name, status) before submission
+- [ ] Fix expired QB refresh token — add re-auth flow and better error handling
+- [ ] Update tRPC validateQB procedure to return amount + customer info
+- [ ] Rewrite Invoices.tsx: single search field, auto-populated amount, confirm-then-submit flow
+- [ ] Save checkpoint

@@ -15,7 +15,8 @@ const QR_PRESETS = [
 
 export default function AdminSettings() {
   // QuickBooks status
-  const [qbStatus, setQbStatus] = useState<{ configured: boolean; connected: boolean; realmId: string | null; environment: string; connectedAt: string | null } | null>(null);
+  const [qbStatus, setQbStatus] = useState<{ configured: boolean; connected: boolean; tokenExpired?: boolean; realmId: string | null; environment: string; connectedAt: string | null } | null>(null);
+  const [disconnectingQb, setDisconnectingQb] = useState(false);
   const [loadingQbStatus, setLoadingQbStatus] = useState(true);
 
   useEffect(() => {
@@ -242,12 +243,27 @@ export default function AdminSettings() {
                 ))}
               </div>
 
-              {qbStatus?.connected ? (
+              {/* Token expired warning */}
+              {qbStatus?.connected && qbStatus?.tokenExpired && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-amber-700 mb-1">⚠ Token Expired</p>
+                  <p className="text-xs text-amber-600 mb-3">Your QuickBooks authorization has expired (tokens last ~100 days). Re-authorize to restore invoice validation.</p>
+                  <a href="/api/qb/connect" className="inline-flex items-center gap-2 bg-amber-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90">
+                    <RefreshCw size={14} />
+                    Re-authorize Now
+                  </a>
+                </div>
+              )}
+
+              {/* Invalid grant / refresh token error guidance */}
+              {qbStatus?.connected && !qbStatus?.tokenExpired && (
                 <div className="bg-green-50 rounded-xl p-3 text-sm text-green-700">
                   <p className="font-semibold mb-1">✓ QuickBooks is active</p>
-                  <p className="text-xs text-green-600">Invoice numbers are automatically validated against QuickBooks when customers submit them. Points are only awarded for paid invoices.</p>
+                  <p className="text-xs text-green-600">Invoice numbers are automatically validated. Points are only awarded for paid invoices.</p>
                 </div>
-              ) : (
+              )}
+
+              {!qbStatus?.connected && (
                 <div className="bg-yellow-50 rounded-xl p-3 text-sm text-yellow-700">
                   <p className="font-semibold mb-1">QuickBooks not connected</p>
                   <p className="text-xs text-yellow-600 mb-3">Without QuickBooks, invoices go to manual review. Connect to enable automatic validation.</p>
@@ -262,13 +278,36 @@ export default function AdminSettings() {
               )}
 
               {qbStatus?.connected && (
-                <a
-                  href="/api/qb/connect"
-                  className="inline-flex items-center gap-2 text-sm text-[#5B9BD5] hover:underline"
-                >
-                  <RefreshCw size={13} />
-                  Re-authorize QuickBooks
-                </a>
+                <div className="flex gap-3 flex-wrap">
+                  <a
+                    href="/api/qb/connect"
+                    className="inline-flex items-center gap-2 text-sm text-[#5B9BD5] hover:underline"
+                  >
+                    <RefreshCw size={13} />
+                    Re-authorize QuickBooks
+                  </a>
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Disconnect QuickBooks? Invoice validation will be disabled until you reconnect.")) return;
+                      setDisconnectingQb(true);
+                      try {
+                        await fetch("/api/qb/disconnect", { method: "POST" });
+                        const data = await fetch("/api/qb/status").then(r => r.json());
+                        setQbStatus(data);
+                        toast.success("QuickBooks disconnected.");
+                      } catch {
+                        toast.error("Failed to disconnect.");
+                      } finally {
+                        setDisconnectingQb(false);
+                      }
+                    }}
+                    disabled={disconnectingQb}
+                    className="inline-flex items-center gap-2 text-sm text-red-500 hover:underline disabled:opacity-50"
+                  >
+                    {disconnectingQb ? <Loader2 size={13} className="animate-spin" /> : null}
+                    Disconnect
+                  </button>
+                </div>
               )}
             </div>
           )}
