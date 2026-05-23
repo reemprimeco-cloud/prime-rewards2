@@ -70,9 +70,9 @@ export default function Home() {
             {/* PRIME logo in hero */}
             <div className="flex justify-center mb-8">
               <img
-                src="/manus-storage/prime-printing-logo_7a0fdf13.jpg"
+                src="/manus-storage/prime-logo-transparent_8c847e88.png"
                 alt="PRIME Printing Co."
-                className="h-24 md:h-32 w-auto brightness-0 invert"
+                className="h-28 md:h-36 w-auto"
               />
             </div>
             <motion.div
@@ -215,7 +215,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-[#1B2A5E] text-white/60 py-8">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
-          <img src="/manus-storage/prime-printing-logo_7a0fdf13.jpg" alt="PRIME Printing Co." className="h-9 w-auto opacity-70" />
+          <img src="/manus-storage/prime-logo-transparent_8c847e88.png" alt="PRIME Printing Co." className="h-10 w-auto opacity-70" />
           <p className="text-sm">{t.landing_footer}</p>
         </div>
       </footer>
