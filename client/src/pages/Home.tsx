@@ -30,7 +30,12 @@ export default function Home() {
       {/* Header */}
       <header className="bg-[#1B2A5E] text-white">
         <div className="container flex items-center justify-between h-16">
-          <img src="/manus-storage/prime-printing-logo_7a0fdf13.jpg" alt="PRIME Printing Co." className="h-10 w-auto" />
+          <div className="flex items-center gap-2">
+            <img src="/manus-storage/prime-rewards-pwa-icon-v2-192_ed0be00d.png" alt="Prime Rewards" className="h-9 w-9 rounded-xl" />
+            <span className="font-bold text-white text-sm leading-tight hidden sm:block">
+              <span className="text-yellow-400">PRIME</span> Rewards
+            </span>
+          </div>
           <div className="flex items-center gap-3">
             {/* Language Toggle */}
             <button
