@@ -59,6 +59,7 @@ export const invoices = mysqlTable("invoices", {
   rejectionReason: text("rejectionReason"),
   campaignId: int("campaignId"),
   multiplierApplied: float("multiplierApplied").default(1).notNull(),
+  source: mysqlEnum("source", ["manual", "quickbooks", "woocommerce"]).default("manual").notNull(),
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
   reviewedAt: timestamp("reviewedAt"),
   reviewedBy: int("reviewedBy"),
@@ -193,3 +194,16 @@ export const fraudFlags = mysqlTable("fraud_flags", {
 });
 
 export type FraudFlag = typeof fraudFlags.$inferSelect;
+
+// ─── QuickBooks Settings ───────────────────────────────────────────────────────
+export const qbSettings = mysqlTable("qb_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  realmId: varchar("realmId", { length: 64 }).notNull().unique(),
+  accessToken: text("accessToken"),
+  refreshToken: text("refreshToken").notNull(),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type QBSettings = typeof qbSettings.$inferSelect;

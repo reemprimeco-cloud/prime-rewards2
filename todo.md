@@ -67,3 +67,15 @@
 - [x] Add RTL layout support when Arabic is active
 - [x] Add Arabic/English toggle icon button to CustomerLayout and AdminLayout
 - [x] Translate all pages and components to Arabic
+
+## Phase 8: QuickBooks Integration
+- [x] Store QB secrets (client ID, secret, environment, redirect URI)
+- [x] Build QB OAuth 2.0 connect URL generator (server-side)
+- [x] Build QB OAuth callback handler (/api/qb/callback) — exchange code for tokens, store realm_id + refresh_token
+- [x] Build QB token refresh helper (auto-refresh access token using refresh token)
+- [x] Build QB invoice lookup helper (search by invoice number via QB API)
+- [x] Validate invoice: check existence, paid/unpaid status, duplicate claim detection
+- [x] Wire invoice submission to QB validation before awarding points
+- [x] Add QB connection status + Connect button in Admin Settings
+- [x] Show QB validation result in invoice submission UI (customer-facing)
+- [x] Save checkpoint

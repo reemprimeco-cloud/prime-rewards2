@@ -198,6 +198,7 @@ export async function submitInvoice(data: {
   invoiceNumber: string;
   invoiceAmount: number;
   campaignId?: number;
+  source?: "manual" | "quickbooks" | "woocommerce";
 }) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
@@ -257,6 +258,7 @@ export async function submitInvoice(data: {
     status: "pending",
     campaignId,
     multiplierApplied: multiplier,
+    source: data.source ?? "manual",
   });
 
   const result = await db

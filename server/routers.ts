@@ -53,6 +53,7 @@ import {
   notifications,
 } from "../drizzle/schema";
 import { nanoid } from "nanoid";
+import { lookupQBInvoice, isQBConnected } from "./quickbooks";
 
 // Admin guard middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -133,22 +134,78 @@ export const appRouter = router({
 
   // ─── Invoices ─────────────────────────────────────────────────────────────
   invoices: router({
+    // Check QB connection status (used by invoice form)
+    qbStatus: publicProcedure.query(() => ({
+      connected: isQBConnected(),
+    })),
+
+    // Validate an invoice number against QuickBooks before submitting
+    validateQB: protectedProcedure
+      .input(z.object({ invoiceNumber: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        if (!isQBConnected()) {
+          return { validated: false, reason: "QB_NOT_CONNECTED", message: "QuickBooks is not connected. Invoice will be submitted for manual review." };
+        }
+        const result = await lookupQBInvoice(input.invoiceNumber);
+        if (!result.found) {
+          return { validated: false, reason: "NOT_FOUND", message: result.errorMessage ?? "Invoice not found in QuickBooks." };
+        }
+        if (result.status === "unpaid") {
+          return { validated: false, reason: "UNPAID", message: "This invoice is still unpaid in QuickBooks. Points are awarded after payment." };
+        }
+        return {
+          validated: true,
+          reason: "OK",
+          message: "Invoice verified in QuickBooks.",
+          customerName: result.customerName,
+          totalAmount: result.totalAmount,
+          status: result.status,
+        };
+      }),
+
     submit: protectedProcedure
       .input(z.object({
         invoiceNumber: z.string().min(1),
         invoiceAmount: z.number().positive(),
+        skipQBValidation: z.boolean().optional().default(false),
       }))
       .mutation(async ({ ctx, input }) => {
         const customer = await getCustomerByUserId(ctx.user.id);
         if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
+
+        // QuickBooks validation (if connected)
+        let qbValidated = false;
+        let qbCustomerName: string | undefined;
+        if (isQBConnected() && !input.skipQBValidation) {
+          const qbResult = await lookupQBInvoice(input.invoiceNumber);
+          if (!qbResult.found) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invoice not found in QuickBooks. Please check the invoice number.",
+            });
+          }
+          if (qbResult.status === "unpaid") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "This invoice is still unpaid. Points are awarded after payment is confirmed.",
+            });
+          }
+          qbValidated = true;
+          qbCustomerName = qbResult.customerName;
+          // Use QB amount if customer didn't provide one or if it differs significantly
+          if (qbResult.totalAmount && Math.abs(qbResult.totalAmount - input.invoiceAmount) > 0.5) {
+            input.invoiceAmount = qbResult.totalAmount;
+          }
+        }
 
         try {
           const invoice = await submitInvoice({
             customerId: customer.id,
             invoiceNumber: input.invoiceNumber,
             invoiceAmount: input.invoiceAmount,
+            source: qbValidated ? "quickbooks" : "manual",
           });
-          return invoice;
+          return { ...invoice, qbValidated, qbCustomerName };
         } catch (err: any) {
           if (err.message === "DUPLICATE_INVOICE") {
             throw new TRPCError({ code: "CONFLICT", message: "This invoice number has already been submitted." });

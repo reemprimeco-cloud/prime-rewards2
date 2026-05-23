@@ -7,4 +7,10 @@ export const ENV = {
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  qbClientId: process.env.QUICKBOOKS_CLIENT_ID ?? "",
+  qbClientSecret: process.env.QUICKBOOKS_CLIENT_SECRET ?? "",
+  qbEnvironment: (process.env.QUICKBOOKS_ENVIRONMENT ?? "sandbox") as "sandbox" | "production",
+  qbRedirectUri: process.env.QUICKBOOKS_REDIRECT_URI ?? "",
+  qbRealmId: process.env.QUICKBOOKS_REALM_ID ?? "",
+  qbRefreshToken: process.env.QUICKBOOKS_REFRESH_TOKEN ?? "",
 };

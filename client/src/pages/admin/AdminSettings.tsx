@@ -2,7 +2,7 @@ import { trpc } from "@/lib/trpc";
 import AdminLayout from "@/components/AdminLayout";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Settings, Database, QrCode, RefreshCw, Loader2, Download, Shield, Star, Users } from "lucide-react";
+import { Settings, Database, QrCode, RefreshCw, Loader2, Download, Shield, Star, Users, Link2, CheckCircle, AlertCircle, ExternalLink } from "lucide-react";
 import QRCode from "qrcode";
 
 const QR_PRESETS = [
@@ -14,6 +14,31 @@ const QR_PRESETS = [
 ];
 
 export default function AdminSettings() {
+  // QuickBooks status
+  const [qbStatus, setQbStatus] = useState<{ configured: boolean; connected: boolean; realmId: string | null; environment: string; connectedAt: string | null } | null>(null);
+  const [loadingQbStatus, setLoadingQbStatus] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/qb/status")
+      .then(r => r.json())
+      .then(data => { setQbStatus(data); setLoadingQbStatus(false); })
+      .catch(() => setLoadingQbStatus(false));
+  }, []);
+
+  // Check URL params for QB callback result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("qb_connected")) {
+      toast.success("QuickBooks connected successfully!");
+      window.history.replaceState({}, "", window.location.pathname);
+      // Refresh status
+      fetch("/api/qb/status").then(r => r.json()).then(setQbStatus);
+    } else if (params.get("qb_error")) {
+      toast.error(`QuickBooks connection failed: ${params.get("qb_error")}`);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   const seedMutation = trpc.admin.seedData.useMutation({
     onSuccess: () => toast.success("Default badges and rewards seeded successfully!"),
     onError: (err) => toast.error(err.message),
@@ -175,6 +200,76 @@ export default function AdminSettings() {
                 <Download size={14} />
                 Download QR Code
               </a>
+            </div>
+          )}
+        </div>
+
+        {/* QuickBooks Integration */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center">
+              <Link2 size={18} className="text-green-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-[#1B2A5E]">QuickBooks Integration</h3>
+              <p className="text-xs text-gray-500">Automatic invoice validation and verification</p>
+            </div>
+            {!loadingQbStatus && (
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+                qbStatus?.connected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+              }`}>
+                {qbStatus?.connected ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                {qbStatus?.connected ? "Connected" : "Not Connected"}
+              </div>
+            )}
+          </div>
+
+          {loadingQbStatus ? (
+            <div className="flex justify-center py-4"><Loader2 size={20} className="animate-spin text-gray-400" /></div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: "Environment", value: qbStatus?.environment ?? "sandbox" },
+                  { label: "Realm ID", value: qbStatus?.realmId ? `...${qbStatus.realmId.slice(-6)}` : "Not set" },
+                  { label: "Status", value: qbStatus?.connected ? "Active" : "Disconnected" },
+                  { label: "Connected", value: qbStatus?.connectedAt ? new Date(qbStatus.connectedAt).toLocaleDateString() : "Never" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-gray-50 rounded-xl p-3">
+                    <p className="text-xs text-gray-400 mb-0.5">{label}</p>
+                    <p className="text-sm font-semibold text-[#1B2A5E]">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {qbStatus?.connected ? (
+                <div className="bg-green-50 rounded-xl p-3 text-sm text-green-700">
+                  <p className="font-semibold mb-1">✓ QuickBooks is active</p>
+                  <p className="text-xs text-green-600">Invoice numbers are automatically validated against QuickBooks when customers submit them. Points are only awarded for paid invoices.</p>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 rounded-xl p-3 text-sm text-yellow-700">
+                  <p className="font-semibold mb-1">QuickBooks not connected</p>
+                  <p className="text-xs text-yellow-600 mb-3">Without QuickBooks, invoices go to manual review. Connect to enable automatic validation.</p>
+                  <a
+                    href="/api/qb/connect"
+                    className="inline-flex items-center gap-2 bg-[#1B2A5E] text-white px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90"
+                  >
+                    <ExternalLink size={14} />
+                    Connect QuickBooks
+                  </a>
+                </div>
+              )}
+
+              {qbStatus?.connected && (
+                <a
+                  href="/api/qb/connect"
+                  className="inline-flex items-center gap-2 text-sm text-[#5B9BD5] hover:underline"
+                >
+                  <RefreshCw size={13} />
+                  Re-authorize QuickBooks
+                </a>
+              )}
             </div>
           )}
         </div>

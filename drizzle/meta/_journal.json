@@ -15,6 +15,27 @@
       "when": 1778331471393,
       "tag": "0001_steady_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1779547172892,
+      "tag": "0002_glorious_night_nurse",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1779547353101,
+      "tag": "0003_sleepy_bloodstorm",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1779547599595,
+      "tag": "0004_first_vivisector",
+      "breakpoints": true
     }
   ]
 }

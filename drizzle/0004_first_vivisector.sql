@@ -1,0 +1,1 @@
+ALTER TABLE `qb_settings` ADD CONSTRAINT `qb_settings_realmId_unique` UNIQUE(`realmId`);

@@ -1,0 +1,1 @@
+ALTER TABLE `invoices` ADD `source` enum('manual','quickbooks','woocommerce') DEFAULT 'manual' NOT NULL;
