@@ -170,16 +170,32 @@ export async function getValidAccessToken(): Promise<string> {
     throw new Error("QuickBooks Realm ID not configured.");
   }
 
-  const tokens = await refreshQBToken(refreshToken);
-  _cachedAccessToken = tokens.access_token;
-  _cachedTokenExpiry = now + tokens.expires_in * 1000;
-  _cachedRefreshToken = tokens.refresh_token;
-  _cachedRealmId = realmId;
+  try {
+    const tokens = await refreshQBToken(refreshToken);
+    _cachedAccessToken = tokens.access_token;
+    _cachedTokenExpiry = now + tokens.expires_in * 1000;
+    _cachedRefreshToken = tokens.refresh_token;
+    _cachedRealmId = realmId;
 
-  // Persist updated tokens
-  await saveQBTokensToDB(realmId, tokens.access_token, tokens.refresh_token, tokens.expires_in);
+    // Persist updated tokens
+    await saveQBTokensToDB(realmId, tokens.access_token, tokens.refresh_token, tokens.expires_in);
 
-  return _cachedAccessToken;
+    return _cachedAccessToken;
+  } catch (err: any) {
+    // Detect expired/revoked refresh token — guide admin to re-authorize
+    const msg: string = err?.message ?? "";
+    if (msg.includes("invalid_grant") || msg.includes("400")) {
+      // Clear stale cached tokens so next call tries fresh
+      _cachedAccessToken = null;
+      _cachedTokenExpiry = 0;
+      _cachedRefreshToken = null;
+      throw new Error(
+        "QB_TOKEN_EXPIRED: Your QuickBooks authorization has expired or been revoked. " +
+        "Please go to Admin → Settings → QuickBooks Integration and click \"Re-authorize QuickBooks\" to reconnect."
+      );
+    }
+    throw err;
+  }
 }
 
 // ─── Invoice Lookup ──────────────────────────────────────────────────────────
@@ -197,6 +213,7 @@ export interface QBInvoice {
 export type QBInvoiceStatus = "paid" | "unpaid" | "partial" | "not_found";
 
 export interface QBInvoiceLookupResult {
+  tokenExpired?: boolean;
   found: boolean;
   status: QBInvoiceStatus;
   invoice?: QBInvoice;
@@ -256,10 +273,14 @@ export async function lookupQBInvoice(invoiceNumber: string): Promise<QBInvoiceL
     };
   } catch (err: any) {
     console.error("[QB] Invoice lookup error:", err?.message);
+    const isTokenExpired = (err?.message ?? "").includes("QB_TOKEN_EXPIRED");
     return {
       found: false,
       status: "not_found",
-      errorMessage: err?.message ?? "Unknown error looking up invoice",
+      errorMessage: isTokenExpired
+        ? err.message
+        : (err?.message ?? "Unknown error looking up invoice"),
+      tokenExpired: isTokenExpired,
     };
   }
 }

@@ -199,6 +199,7 @@ export async function submitInvoice(data: {
   invoiceAmount: number;
   campaignId?: number;
   source?: "manual" | "quickbooks" | "woocommerce";
+  pendingReview?: boolean;
 }) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
@@ -255,6 +256,8 @@ export async function submitInvoice(data: {
     invoiceNumber: data.invoiceNumber,
     invoiceAmount: String(data.invoiceAmount),
     pointsEarned,
+    // Unpaid/partial invoices go to admin review queue; paid invoices are auto-approved
+    // Both use "pending" status (admin reviews all invoices before awarding points)
     status: "pending",
     campaignId,
     multiplierApplied: multiplier,

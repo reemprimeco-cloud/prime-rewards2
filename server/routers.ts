@@ -229,20 +229,31 @@ export const appRouter = router({
         let qbCustomerName: string | undefined;
         let resolvedAmount: number = input.invoiceAmount ?? 0;
 
+        let pendingReview = false; // set true for unpaid invoices — go to admin review
+
         if (isQBConnected() && !input.skipQBValidation) {
           const qbResult = await lookupQBInvoice(input.invoiceNumber);
+
+          // Token expired — surface a clear reconnect message
+          if (qbResult.tokenExpired) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "QuickBooks authorization has expired. Please ask an admin to re-authorize QuickBooks in Admin → Settings.",
+            });
+          }
+
           if (!qbResult.found) {
             throw new TRPCError({
               code: "BAD_REQUEST",
               message: "Invoice not found in QuickBooks. Please check the invoice number.",
             });
           }
-          if (qbResult.status === "unpaid") {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "This invoice is still unpaid. Points are awarded after payment is confirmed.",
-            });
+
+          if (qbResult.status === "unpaid" || qbResult.status === "partial") {
+            // Allow submission but flag for admin review — points awarded after admin approval
+            pendingReview = true;
           }
+
           qbValidated = true;
           qbCustomerName = qbResult.customerName;
           // Always use QB amount as the authoritative source
@@ -264,8 +275,9 @@ export const appRouter = router({
             invoiceNumber: input.invoiceNumber,
             invoiceAmount: resolvedAmount,
             source: qbValidated ? "quickbooks" : "manual",
+            pendingReview,
           });
-          return { ...invoice, qbValidated, qbCustomerName };
+          return { ...invoice, qbValidated, qbCustomerName, pendingReview };
         } catch (err: any) {
           if (err.message === "DUPLICATE_INVOICE") {
             throw new TRPCError({ code: "CONFLICT", message: "This invoice number has already been submitted." });
