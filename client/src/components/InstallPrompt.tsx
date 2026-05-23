@@ -88,7 +88,7 @@ export default function InstallPrompt() {
             {/* Icon */}
             <div className="flex-shrink-0">
               <img
-                src="https://d2xsxph8kpxj0f.cloudfront.net/310519663573066350/45yCshMdhCKkPUhGJzLrcU/prime-rewards-pwa-icon-192-e3SJLd738p22s9smMbbeuY.png"
+                src="/manus-storage/prime-rewards-pwa-icon-v2-192_ed0be00d.png"
                 alt="Prime Rewards"
                 className="w-14 h-14 rounded-xl shadow-lg"
               />

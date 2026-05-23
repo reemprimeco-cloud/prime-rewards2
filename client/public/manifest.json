@@ -12,13 +12,13 @@
   "dir": "ltr",
   "icons": [
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663573066350/45yCshMdhCKkPUhGJzLrcU/prime-rewards-pwa-icon-192-e3SJLd738p22s9smMbbeuY.png",
+      "src": "/manus-storage/prime-rewards-pwa-icon-v2-192_ed0be00d.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663573066350/45yCshMdhCKkPUhGJzLrcU/prime-rewards-pwa-icon-512-7m5SDmRvCheUTAxZSDzB3i.png",
+      "src": "/manus-storage/prime-rewards-pwa-icon-v2-512_5e2a3fe4.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
