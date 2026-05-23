@@ -13,4 +13,7 @@ export const ENV = {
   qbRedirectUri: process.env.QUICKBOOKS_REDIRECT_URI ?? "",
   qbRealmId: process.env.QUICKBOOKS_REALM_ID ?? "",
   qbRefreshToken: process.env.QUICKBOOKS_REFRESH_TOKEN ?? "",
+  twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
+  twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? "",
+  twilioWhatsappFrom: process.env.TWILIO_WHATSAPP_FROM ?? "",
 };

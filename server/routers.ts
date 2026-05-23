@@ -54,6 +54,14 @@ import {
 } from "../drizzle/schema";
 import { nanoid } from "nanoid";
 import { lookupQBInvoice, lookupQBInvoiceByPhone, isQBConnected } from "./quickbooks";
+import {
+  sendWhatsApp,
+  welcomeMessage,
+  pointsAwardedMessage,
+  rewardRedeemedMessage,
+  tierUpgradeMessage,
+  spinWinMessage,
+} from "./whatsapp";
 
 // Admin guard middleware
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -89,6 +97,10 @@ export const appRouter = router({
         });
         await seedDefaultBadges();
         await seedDefaultRewards();
+        // Send welcome WhatsApp if phone is available
+        if (customer.phone) {
+          sendWhatsApp(customer.phone, welcomeMessage(customer.fullName, customer.totalPoints)).catch(() => {});
+        }
       }
       return customer;
     }),
@@ -102,8 +114,14 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const customer = await getCustomerByUserId(ctx.user.id);
         if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
+        const hadPhone = !!customer.phone;
         await updateCustomer(customer.id, input);
-        return getCustomerByUserId(ctx.user.id);
+        const updated = await getCustomerByUserId(ctx.user.id);
+        // Send welcome WhatsApp when phone is added for the first time
+        if (!hadPhone && input.phone && updated) {
+          sendWhatsApp(input.phone, welcomeMessage(updated.fullName, updated.totalPoints)).catch(() => {});
+        }
+        return updated;
       }),
 
     tierInfo: protectedProcedure.query(async ({ ctx }) => {
@@ -309,7 +327,27 @@ export const appRouter = router({
         rejectionReason: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        return reviewInvoice(input.invoiceId, input.status, ctx.user.id, input.rejectionReason);
+        const result = await reviewInvoice(input.invoiceId, input.status, ctx.user.id, input.rejectionReason);
+        // Send WhatsApp notification when invoice is approved
+        if (input.status === "approved" && result) {
+          try {
+            const customer = await getCustomerById((result as any).customerId);
+            if (customer?.phone) {
+              const inv = result as any;
+              sendWhatsApp(
+                customer.phone,
+                pointsAwardedMessage(
+                  customer.fullName,
+                  inv.pointsEarned ?? 0,
+                  customer.totalPoints,
+                  inv.invoiceNumber ?? "",
+                  parseFloat(inv.invoiceAmount ?? "0")
+                )
+              ).catch(() => {});
+            }
+          } catch {}
+        }
+        return result;
       }),
   }),
 
@@ -323,7 +361,23 @@ export const appRouter = router({
         const customer = await getCustomerByUserId(ctx.user.id);
         if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
         try {
-          return redeemReward(customer.id, input.rewardId);
+          const result = await redeemReward(customer.id, input.rewardId);
+          // Send WhatsApp notification for reward redemption
+          if (customer.phone && result) {
+            const r = result as any;
+            const updatedCustomer = await getCustomerByUserId(ctx.user.id);
+            sendWhatsApp(
+              customer.phone,
+              rewardRedeemedMessage(
+                customer.fullName,
+                r.rewardName ?? "Reward",
+                r.requiredPoints ?? 0,
+                updatedCustomer?.totalPoints ?? 0,
+                r.couponCode
+              )
+            ).catch(() => {});
+          }
+          return result;
         } catch (err: any) {
           if (err.message === "INSUFFICIENT_POINTS") {
             throw new TRPCError({ code: "BAD_REQUEST", message: "Not enough points to redeem this reward." });
@@ -434,7 +488,18 @@ export const appRouter = router({
       const customer = await getCustomerByUserId(ctx.user.id);
       if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
       try {
-        return performSpin(customer.id);
+        const result = await performSpin(customer.id);
+        // Send WhatsApp notification for spin win
+        if (customer.phone && result) {
+          const r = result as any;
+          const prize = r.prize ?? r.label ?? "a prize";
+          const pointsWon = r.pointsWon ?? r.points ?? 0;
+          sendWhatsApp(
+            customer.phone,
+            spinWinMessage(customer.fullName, prize, pointsWon > 0 ? pointsWon : undefined)
+          ).catch(() => {});
+        }
+        return result;
       } catch (err: any) {
         if (err.message === "ALREADY_SPUN_TODAY") {
           throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "You've already used your daily spin. Come back tomorrow!" });
@@ -538,6 +603,31 @@ export const appRouter = router({
           input.points > 0 ? "Points Added by Admin" : "Points Adjusted",
           `${Math.abs(input.points)} points have been ${input.points > 0 ? "added to" : "deducted from"} your account. Reason: ${input.reason}`
         );
+        // Send WhatsApp notification for manual point adjustment
+        if (input.points > 0) {
+          try {
+            const customer = await getCustomerById(input.customerId);
+            if (customer?.phone) {
+              const updatedCustomer = await getCustomerById(input.customerId);
+              sendWhatsApp(
+                customer.phone,
+                [
+                  `💰 *تم إضافة النقاط! / Points Added!*`,
+                  ``,
+                  `مرحباً ${customer.fullName},`,
+                  `Hello ${customer.fullName},`,
+                  ``,
+                  `🎉 تمت إضافة *${input.points} نقطة* إلى حسابك.`,
+                  `🎉 *${input.points} points* have been added to your account.`,
+                  ``,
+                  `السبب / Reason: ${input.reason}`,
+                  ``,
+                  `💰 إجمالي نقاطك / Total Points: *${updatedCustomer?.totalPoints ?? 0}*`,
+                ].join("\n")
+              ).catch(() => {});
+            }
+          } catch {}
+        }
         return result;
       }),
 
