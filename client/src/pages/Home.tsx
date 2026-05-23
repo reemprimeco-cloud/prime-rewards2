@@ -30,7 +30,7 @@ export default function Home() {
       {/* Header */}
       <header className="bg-[#1B2A5E] text-white">
         <div className="container flex items-center justify-between h-16">
-          <img src="/manus-storage/prime-logo_d356d52a.jpg" alt="PRIME Printing Co." className="h-9 w-auto brightness-0 invert" />
+          <img src="/manus-storage/prime-printing-logo_7a0fdf13.jpg" alt="PRIME Printing Co." className="h-10 w-auto" />
           <div className="flex items-center gap-3">
             {/* Language Toggle */}
             <button
@@ -62,6 +62,14 @@ export default function Home() {
         </div>
         <div className="container relative z-10">
           <div className="max-w-2xl">
+            {/* PRIME logo in hero */}
+            <div className="mb-8">
+              <img
+                src="/manus-storage/prime-printing-logo_7a0fdf13.jpg"
+                alt="PRIME Printing Co."
+                className="h-16 md:h-20 w-auto"
+              />
+            </div>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -202,7 +210,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="bg-[#1B2A5E] text-white/60 py-8">
         <div className="container flex flex-col md:flex-row items-center justify-between gap-4">
-          <img src="/manus-storage/prime-logo_d356d52a.jpg" alt="PRIME Printing Co." className="h-8 w-auto brightness-0 invert opacity-70" />
+          <img src="/manus-storage/prime-printing-logo_7a0fdf13.jpg" alt="PRIME Printing Co." className="h-9 w-auto opacity-70" />
           <p className="text-sm">{t.landing_footer}</p>
         </div>
       </footer>

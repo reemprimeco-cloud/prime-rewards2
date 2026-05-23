@@ -73,7 +73,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         ${sidebarOpen ? "translate-x-0" : isRTL ? "translate-x-full" : "-translate-x-full"}
       `}>
         <div className="p-5 border-b border-white/10">
-          <img src="/manus-storage/prime-logo_d356d52a.jpg" alt="PRIME" className="h-8 w-auto brightness-0 invert mb-1" />
+          <div className="flex items-center gap-2 mb-1">
+            <img src="/manus-storage/prime-rewards-pwa-icon-v2-192_ed0be00d.png" alt="Prime Rewards" className="h-9 w-9 rounded-xl" />
+            <span className="font-bold text-white text-sm leading-tight">
+              <span className="text-yellow-400">PRIME</span> Rewards
+            </span>
+          </div>
           <p className="text-xs text-white/50 font-medium tracking-wider uppercase">{t.admin_panel}</p>
         </div>
         <nav className="p-4 space-y-1 flex-1">

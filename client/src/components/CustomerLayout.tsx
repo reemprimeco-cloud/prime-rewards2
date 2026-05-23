@@ -58,7 +58,10 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
       <header className="bg-[#1B2A5E] text-white sticky top-0 z-50 shadow-lg">
         <div className="container flex items-center justify-between h-14">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <img src="/manus-storage/prime-logo_d356d52a.jpg" alt="PRIME" className="h-7 w-auto rounded brightness-0 invert" />
+            <img src="/manus-storage/prime-rewards-pwa-icon-v2-192_ed0be00d.png" alt="Prime Rewards" className="h-8 w-8 rounded-xl" />
+            <span className="font-bold text-white text-sm leading-tight hidden sm:block">
+              <span className="text-yellow-400">PRIME</span> Rewards
+            </span>
           </Link>
           <div className="flex items-center gap-2">
             {/* Language Toggle */}
