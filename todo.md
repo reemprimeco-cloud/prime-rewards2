@@ -88,3 +88,31 @@
 - [x] Update tRPC validateQB procedure to return amount + customer info
 - [x] Rewrite Invoices.tsx: single search field, auto-populated amount, confirm-then-submit flow
 - [x] Save checkpoint
+
+## Phase 10: Platform Upgrade (v2)
+
+- [x] Add whatsapp_logs table to schema
+- [x] Add failed_attempts table to schema
+- [x] Add suspicious_accounts table to schema
+- [x] Add pending_customers table to schema
+- [x] Run DB migrations for new tables
+- [x] Backend: enforce 1pt per 10 KD points calculation (floor division)
+- [x] Backend: rate limiting (max 5 invoices/day, cooldown between submissions)
+- [ ] Backend: IP tracking on invoice submissions
+- [x] Backend: failed attempt counter — auto-flag after 5 failed attempts
+- [x] Backend: auto-block suspicious accounts after threshold
+- [x] Backend: WhatsApp delivery log (save to whatsapp_logs table with retry)
+- [x] Backend: WhatsApp resend endpoint for admin
+- [x] Backend: Kuwait phone validation (+965, 8 digits after code)
+- [ ] Backend: prevent duplicate phone accounts on registration
+- [x] Admin page: WhatsApp Logs (/admin/whatsapp)
+- [x] Admin page: Suspicious Accounts (/admin/suspicious)
+- [x] Admin page: Reward Analytics (/admin/analytics)
+- [x] Admin: block/unblock suspicious users
+- [x] Admin: resend WhatsApp message button
+- [ ] Admin: reset invoice claim
+- [x] UX: better error messages (invoice not found, already used, amount mismatch, suspicious, WhatsApp failure)
+- [x] UX: loading states and success animations on invoice submission
+- [x] UX: Kuwait phone validation on profile page
+- [ ] UX: mobile responsiveness improvements
+- [ ] Remove broken/unused components

@@ -14,6 +14,10 @@ import {
   spinResults,
   notifications,
   fraudFlags,
+  whatsappLogs,
+  failedAttempts,
+  suspiciousAccounts,
+  pendingCustomers,
   type Customer,
   type InsertCustomer,
 } from "../drizzle/schema";
@@ -670,4 +674,158 @@ export async function seedDefaultRewards() {
   for (const reward of defaultRewards) {
     await db.insert(rewards).values(reward as any);
   }
+}
+
+// ─── WhatsApp Logs ─────────────────────────────────────────────────────────────
+export async function logWhatsApp(data: {
+  customerId?: number;
+  phone: string;
+  messageType: "points_awarded" | "welcome" | "tier_upgrade" | "reward_redeemed" | "expiry_warning" | "spin_win" | "manual";
+  messageBody: string;
+  invoiceId?: number;
+  status?: "sent" | "failed" | "pending" | "retrying";
+  messageSid?: string;
+  errorMessage?: string;
+}): Promise<number | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(whatsappLogs).values({
+    customerId: data.customerId,
+    phone: data.phone,
+    messageType: data.messageType,
+    messageBody: data.messageBody,
+    invoiceId: data.invoiceId,
+    status: data.status ?? "pending",
+    messageSid: data.messageSid,
+    errorMessage: data.errorMessage,
+    sentAt: data.status === "sent" ? new Date() : undefined,
+  });
+  return (result as any).insertId ?? null;
+}
+
+export async function updateWhatsAppLog(id: number, data: {
+  status: "sent" | "failed" | "retrying";
+  messageSid?: string;
+  errorMessage?: string;
+  retryCount?: number;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(whatsappLogs).set({
+    status: data.status,
+    messageSid: data.messageSid,
+    errorMessage: data.errorMessage,
+    retryCount: data.retryCount,
+    sentAt: data.status === "sent" ? new Date() : undefined,
+  }).where(eq(whatsappLogs.id, id));
+}
+
+export async function getWhatsAppLogs(limit = 100, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ log: whatsappLogs, customer: customers })
+    .from(whatsappLogs)
+    .leftJoin(customers, eq(whatsappLogs.customerId, customers.id))
+    .orderBy(desc(whatsappLogs.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+// ─── Failed Attempts ───────────────────────────────────────────────────────────
+export async function recordFailedAttempt(data: {
+  customerId?: number;
+  ipAddress?: string;
+  attemptType: "invoice_not_found" | "duplicate_invoice" | "amount_mismatch" | "phone_mismatch" | "rate_limit";
+  invoiceNumber?: string;
+  details?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(failedAttempts).values(data);
+  if (data.customerId) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentFails = await db
+      .select({ count: count() })
+      .from(failedAttempts)
+      .where(and(eq(failedAttempts.customerId, data.customerId), gte(failedAttempts.createdAt, since)));
+    const failCount = recentFails[0]?.count ?? 0;
+    if (failCount >= 5) {
+      await upsertSuspiciousAccount(data.customerId, `${failCount} failed invoice attempts in 24 hours`, failCount);
+    }
+  }
+}
+
+// ─── Suspicious Accounts ──────────────────────────────────────────────────────
+export async function upsertSuspiciousAccount(customerId: number, reason: string, failCount: number) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select().from(suspiciousAccounts).where(eq(suspiciousAccounts.customerId, customerId)).limit(1);
+  if (existing[0]) {
+    await db.update(suspiciousAccounts).set({
+      failedAttemptCount: failCount,
+      reason,
+      isBlocked: failCount >= 10 ? true : existing[0].isBlocked,
+      blockedAt: failCount >= 10 && !existing[0].isBlocked ? new Date() : existing[0].blockedAt,
+    }).where(eq(suspiciousAccounts.customerId, customerId));
+  } else {
+    await db.insert(suspiciousAccounts).values({
+      customerId,
+      reason,
+      failedAttemptCount: failCount,
+      isBlocked: failCount >= 10,
+      blockedAt: failCount >= 10 ? new Date() : undefined,
+    });
+    await createFraudFlag({ customerId, reason: "excessive_submissions", details: reason });
+  }
+}
+
+export async function getSuspiciousAccounts(limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ suspicious: suspiciousAccounts, customer: customers })
+    .from(suspiciousAccounts)
+    .leftJoin(customers, eq(suspiciousAccounts.customerId, customers.id))
+    .orderBy(desc(suspiciousAccounts.createdAt))
+    .limit(limit);
+}
+
+export async function blockSuspiciousAccount(customerId: number, blockedBy: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(suspiciousAccounts).set({ isBlocked: true, blockedAt: new Date(), blockedBy }).where(eq(suspiciousAccounts.customerId, customerId));
+}
+
+export async function unblockSuspiciousAccount(customerId: number, reviewedBy: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(suspiciousAccounts).set({ isBlocked: false, reviewedAt: new Date(), reviewedBy }).where(eq(suspiciousAccounts.customerId, customerId));
+}
+
+export async function isCustomerBlocked(customerId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.select({ isBlocked: suspiciousAccounts.isBlocked })
+    .from(suspiciousAccounts)
+    .where(and(eq(suspiciousAccounts.customerId, customerId), eq(suspiciousAccounts.isBlocked, true)))
+    .limit(1);
+  return result.length > 0;
+}
+
+// ─── Pending Customers ─────────────────────────────────────────────────────────
+export async function getPendingCustomerByPhone(phone: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(pendingCustomers).where(eq(pendingCustomers.phone, phone)).limit(1);
+  return result[0] ?? null;
+}
+
+export async function mergePendingCustomer(phone: string, customerId: number) {
+  const db = await getDb();
+  if (!db) return;
+  const pending = await getPendingCustomerByPhone(phone);
+  if (!pending || pending.pendingPoints <= 0) return;
+  await addPoints(customerId, pending.pendingPoints, "bonus", `Merged pending rewards from phone ${phone}`, undefined, "pending_merge");
+  await db.update(pendingCustomers).set({ mergedToCustomerId: customerId, mergedAt: new Date() }).where(eq(pendingCustomers.phone, phone));
 }

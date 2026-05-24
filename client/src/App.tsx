@@ -21,6 +21,9 @@ import CustomerLayout from "./components/CustomerLayout";
 import Notifications from "./pages/Notifications";
 import Referral from "./pages/Referral";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminWhatsApp from "./pages/admin/AdminWhatsApp";
+import AdminSuspicious from "./pages/admin/AdminSuspicious";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import InstallPrompt from "./components/InstallPrompt";
 
 function Router() {
@@ -42,6 +45,9 @@ function Router() {
       <Route path="/admin/campaigns" component={AdminCampaigns} />
       <Route path="/admin/fraud" component={AdminFraud} />
       <Route path="/admin/settings" component={AdminSettings} />
+      <Route path="/admin/whatsapp" component={AdminWhatsApp} />
+      <Route path="/admin/suspicious" component={AdminSuspicious} />
+      <Route path="/admin/analytics" component={AdminAnalytics} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

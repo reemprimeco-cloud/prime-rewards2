@@ -41,6 +41,14 @@ import {
   getAdminAnalytics,
   seedDefaultBadges,
   seedDefaultRewards,
+  logWhatsApp,
+  updateWhatsAppLog,
+  getWhatsAppLogs,
+  recordFailedAttempt,
+  getSuspiciousAccounts,
+  blockSuspiciousAccount,
+  unblockSuspiciousAccount,
+  isCustomerBlocked,
 } from "./db";
 import { eq, count, desc, and, gte } from "drizzle-orm";
 import {
@@ -114,12 +122,40 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const customer = await getCustomerByUserId(ctx.user.id);
         if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
+
+        // Server-side Kuwait phone validation
+        if (input.phone) {
+          const cleaned = input.phone.replace(/\s|-/g, "");
+          const kuwaitRegex = /^(\+965|00965|965)?[5692][0-9]{7}$/;
+          if (!kuwaitRegex.test(cleaned)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Invalid phone number. Please enter a valid Kuwait phone number (e.g. +965 5500 1234).",
+            });
+          }
+        }
+
         const hadPhone = !!customer.phone;
         await updateCustomer(customer.id, input);
         const updated = await getCustomerByUserId(ctx.user.id);
-        // Send welcome WhatsApp when phone is added for the first time
+        // Send welcome WhatsApp when phone is added for the first time and log it
         if (!hadPhone && input.phone && updated) {
-          sendWhatsApp(input.phone, welcomeMessage(updated.fullName, updated.totalPoints)).catch(() => {});
+          const msg = welcomeMessage(updated.fullName, updated.totalPoints);
+          const logId = await logWhatsApp({
+            customerId: updated.id,
+            phone: input.phone,
+            messageType: "welcome",
+            messageBody: msg,
+            status: "pending",
+          });
+          const waResult = await sendWhatsApp(input.phone, msg).catch(() => ({ success: false, error: "send failed" }));
+          if (logId) {
+            await updateWhatsAppLog(logId, {
+              status: waResult.success ? "sent" : "failed",
+              messageSid: (waResult as any).messageSid,
+              errorMessage: (waResult as any).error,
+            }).catch(() => {});
+          }
         }
         return updated;
       }),
@@ -242,6 +278,15 @@ export const appRouter = router({
         const customer = await getCustomerByUserId(ctx.user.id);
         if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
 
+        // Block check — prevent blocked accounts from submitting
+        const blocked = await isCustomerBlocked(customer.id);
+        if (blocked) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Your account has been flagged for suspicious activity. Please contact support.",
+          });
+        }
+
         // QuickBooks validation (if connected)
         let qbValidated = false;
         let qbCustomerName: string | undefined;
@@ -298,9 +343,22 @@ export const appRouter = router({
           return { ...invoice, qbValidated, qbCustomerName, pendingReview };
         } catch (err: any) {
           if (err.message === "DUPLICATE_INVOICE") {
+            // Log the failed attempt
+            await recordFailedAttempt({
+              customerId: customer.id,
+              attemptType: "duplicate_invoice",
+              invoiceNumber: input.invoiceNumber,
+              details: "Customer attempted to submit a duplicate invoice number",
+            }).catch(() => {});
             throw new TRPCError({ code: "CONFLICT", message: "This invoice number has already been submitted." });
           }
           if (err.message === "RATE_LIMIT_EXCEEDED") {
+            await recordFailedAttempt({
+              customerId: customer.id,
+              attemptType: "rate_limit",
+              invoiceNumber: input.invoiceNumber,
+              details: "Customer exceeded daily invoice submission limit",
+            }).catch(() => {});
             throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "You can submit a maximum of 5 invoices per day." });
           }
           throw err;
@@ -328,22 +386,39 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const result = await reviewInvoice(input.invoiceId, input.status, ctx.user.id, input.rejectionReason);
-        // Send WhatsApp notification when invoice is approved
+        // Send WhatsApp notification when invoice is approved and log it
         if (input.status === "approved" && result) {
           try {
-            const customer = await getCustomerById((result as any).customerId);
-            if (customer?.phone) {
-              const inv = result as any;
-              sendWhatsApp(
-                customer.phone,
-                pointsAwardedMessage(
-                  customer.fullName,
-                  inv.pointsEarned ?? 0,
-                  customer.totalPoints,
-                  inv.invoiceNumber ?? "",
-                  parseFloat(inv.invoiceAmount ?? "0")
-                )
-              ).catch(() => {});
+            const db2 = await getDb();
+            const { invoices: invTable } = await import("../drizzle/schema");
+            const { eq: eqOp } = await import("drizzle-orm");
+            const invRows = db2 ? await db2.select().from(invTable).where(eqOp(invTable.id, input.invoiceId)).limit(1) : [];
+            const inv = invRows[0];
+            const customer = await getCustomerById((result as any).customerId ?? inv?.customerId);
+            if (customer?.phone && inv) {
+              const msg = pointsAwardedMessage(
+                customer.fullName,
+                inv.pointsEarned ?? 0,
+                customer.totalPoints,
+                inv.invoiceNumber ?? "",
+                parseFloat(inv.invoiceAmount ?? "0")
+              );
+              const logId = await logWhatsApp({
+                customerId: customer.id,
+                phone: customer.phone,
+                messageType: "points_awarded",
+                messageBody: msg,
+                invoiceId: inv.id,
+                status: "pending",
+              });
+              const waResult = await sendWhatsApp(customer.phone, msg);
+              if (logId) {
+                await updateWhatsAppLog(logId, {
+                  status: waResult.success ? "sent" : "failed",
+                  messageSid: waResult.messageSid,
+                  errorMessage: waResult.error,
+                });
+              }
             }
           } catch {}
         }
@@ -749,6 +824,54 @@ export const appRouter = router({
       await seedDefaultRewards();
       return { success: true };
     }),
+  }),
+
+  // ─── WhatsApp Logs ─────────────────────────────────────────────────────────────
+  whatsappLogs: router({
+    list: adminProcedure
+      .input(z.object({ limit: z.number().default(100), offset: z.number().default(0) }))
+      .query(({ input }) => getWhatsAppLogs(input.limit, input.offset)),
+
+    resend: adminProcedure
+      .input(z.object({ logId: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        const { whatsappLogs: wlTable } = await import("../drizzle/schema");
+        const { eq: eqOp } = await import("drizzle-orm");
+        const rows = await db.select().from(wlTable).where(eqOp(wlTable.id, input.logId)).limit(1);
+        const log = rows[0];
+        if (!log) throw new TRPCError({ code: "NOT_FOUND" });
+        const result = await sendWhatsApp(log.phone, log.messageBody);
+        await updateWhatsAppLog(log.id, {
+          status: result.success ? "sent" : "failed",
+          messageSid: result.messageSid,
+          errorMessage: result.error,
+          retryCount: (log.retryCount ?? 0) + 1,
+        });
+        return { success: result.success };
+      }),
+  }),
+
+  // ─── Suspicious Accounts ─────────────────────────────────────────────────────
+  suspicious: router({
+    list: adminProcedure
+      .input(z.object({ limit: z.number().default(100) }))
+      .query(({ input }) => getSuspiciousAccounts(input.limit)),
+
+    block: adminProcedure
+      .input(z.object({ customerId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await blockSuspiciousAccount(input.customerId, ctx.user.id);
+        return { success: true };
+      }),
+
+    unblock: adminProcedure
+      .input(z.object({ customerId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        await unblockSuspiciousAccount(input.customerId, ctx.user.id);
+        return { success: true };
+      }),
   }),
 });
 

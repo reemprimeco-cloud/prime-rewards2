@@ -207,3 +207,69 @@ export const qbSettings = mysqlTable("qb_settings", {
 });
 
 export type QBSettings = typeof qbSettings.$inferSelect;
+
+// ─── WhatsApp Logs ─────────────────────────────────────────────────────────────
+export const whatsappLogs = mysqlTable("whatsapp_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customerId"),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  messageType: mysqlEnum("messageType", ["points_awarded", "welcome", "tier_upgrade", "reward_redeemed", "expiry_warning", "spin_win", "manual"]).notNull(),
+  messageBody: text("messageBody").notNull(),
+  status: mysqlEnum("status", ["sent", "failed", "pending", "retrying"]).default("pending").notNull(),
+  messageSid: varchar("messageSid", { length: 64 }),
+  errorMessage: text("errorMessage"),
+  retryCount: int("retryCount").default(0).notNull(),
+  invoiceId: int("invoiceId"),
+  sentAt: timestamp("sentAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WhatsappLog = typeof whatsappLogs.$inferSelect;
+export type InsertWhatsappLog = typeof whatsappLogs.$inferInsert;
+
+// ─── Failed Attempts ───────────────────────────────────────────────────────────
+export const failedAttempts = mysqlTable("failed_attempts", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customerId"),
+  ipAddress: varchar("ipAddress", { length: 64 }),
+  attemptType: mysqlEnum("attemptType", ["invoice_not_found", "duplicate_invoice", "amount_mismatch", "phone_mismatch", "rate_limit"]).notNull(),
+  invoiceNumber: varchar("invoiceNumber", { length: 64 }),
+  details: text("details"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FailedAttempt = typeof failedAttempts.$inferSelect;
+export type InsertFailedAttempt = typeof failedAttempts.$inferInsert;
+
+// ─── Suspicious Accounts ──────────────────────────────────────────────────────
+export const suspiciousAccounts = mysqlTable("suspicious_accounts", {
+  id: int("id").autoincrement().primaryKey(),
+  customerId: int("customerId").notNull().unique(),
+  reason: text("reason").notNull(),
+  failedAttemptCount: int("failedAttemptCount").default(0).notNull(),
+  isBlocked: boolean("isBlocked").default(false).notNull(),
+  blockedAt: timestamp("blockedAt"),
+  blockedBy: int("blockedBy"),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewedBy: int("reviewedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SuspiciousAccount = typeof suspiciousAccounts.$inferSelect;
+export type InsertSuspiciousAccount = typeof suspiciousAccounts.$inferInsert;
+
+// ─── Pending Customers ─────────────────────────────────────────────────────────
+export const pendingCustomers = mysqlTable("pending_customers", {
+  id: int("id").autoincrement().primaryKey(),
+  phone: varchar("phone", { length: 32 }).notNull().unique(),
+  fullName: varchar("fullName", { length: 255 }),
+  pendingPoints: int("pendingPoints").default(0).notNull(),
+  invoiceNumbers: text("invoiceNumbers"), // JSON array of invoice numbers
+  mergedToCustomerId: int("mergedToCustomerId"),
+  mergedAt: timestamp("mergedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PendingCustomer = typeof pendingCustomers.$inferSelect;
+export type InsertPendingCustomer = typeof pendingCustomers.$inferInsert;

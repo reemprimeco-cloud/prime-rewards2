@@ -35,6 +35,20 @@ export default function Profile() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ fullName: "", phone: "", businessName: "" });
+  const [phoneError, setPhoneError] = useState("");
+
+  // Kuwait phone validation: +965 followed by 8 digits starting with 5, 6, 9, 2, or 1
+  const validateKuwaitPhone = (phone: string): string => {
+    if (!phone) return "";
+    const cleaned = phone.replace(/\s|-/g, "");
+    const kuwaitRegex = /^(\+965|00965|965)?[5692][0-9]{7}$/;
+    if (!kuwaitRegex.test(cleaned)) {
+      return language === "ar"
+        ? "رقم الهاتف غير صحيح. يجب أن يكون رقماً كويتياً صحيحاً (مثال: +965 9999 9999)"
+        : "Invalid phone number. Must be a valid Kuwait number (e.g. +965 9999 9999)";
+    }
+    return "";
+  };
 
   const updateMutation = trpc.customer.update.useMutation({
     onSuccess: () => {
@@ -126,11 +140,25 @@ export default function Profile() {
                   <label className="text-xs text-gray-500 mb-1 block">{t.profile_phone}</label>
                   <input
                     value={form.phone}
-                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#5B9BD5]"
+                    onChange={e => {
+                      setForm(f => ({ ...f, phone: e.target.value }));
+                      setPhoneError(validateKuwaitPhone(e.target.value));
+                    }}
+                    className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-colors ${
+                      phoneError ? "border-red-400 focus:border-red-400" : "border-gray-200 focus:border-[#5B9BD5]"
+                    }`}
                     placeholder={language === "ar" ? "+965 XXXX XXXX" : "+965 XXXX XXXX"}
                     dir="ltr"
                   />
+                  {phoneError && (
+                    <p className="text-xs text-red-500 mt-1">{phoneError}</p>
+                  )}
+                  {form.phone && !phoneError && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <Check size={12} />
+                      {language === "ar" ? "رقم هاتف صحيح" : "Valid Kuwait number"}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">
@@ -144,8 +172,12 @@ export default function Profile() {
                   />
                 </div>
                 <button
-                  onClick={() => updateMutation.mutate(form)}
-                  disabled={updateMutation.isPending}
+                  onClick={() => {
+                    const err = validateKuwaitPhone(form.phone);
+                    if (err) { setPhoneError(err); return; }
+                    updateMutation.mutate(form);
+                  }}
+                  disabled={updateMutation.isPending || !!phoneError}
                   className="w-full bg-[#1B2A5E] text-white py-3 rounded-xl font-semibold flex items-center justify-center gap-2"
                 >
                   {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}

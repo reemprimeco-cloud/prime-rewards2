@@ -52,12 +52,26 @@ export default function Invoices() {
   });
 
   const submitMutation = trpc.invoices.submit.useMutation({
-    onSuccess: (data: { pointsEarned?: number }) => {
+    onSuccess: (data: { pointsEarned?: number; pendingReview?: boolean }) => {
       setEarnedPoints(data.pointsEarned ?? 0);
       setStep("success");
-      toast.success(`Invoice submitted! You earned ${data.pointsEarned ?? 0} points.`);
+      if (data.pendingReview) {
+        toast.info("Invoice submitted for admin review. Points will be awarded once approved.");
+      } else {
+        toast.success(`Invoice submitted! You earned ${data.pointsEarned ?? 0} points.`);
+      }
     },
-    onError: (err: { message: string }) => toast.error(err.message),
+    onError: (err: { message: string }) => {
+      if (err.message.includes("flagged for suspicious activity")) {
+        toast.error("Your account has been flagged. Please contact PRIME Printing Co. support.", { duration: 6000 });
+      } else if (err.message.includes("already been submitted")) {
+        toast.error("This invoice has already been submitted. Each invoice can only be claimed once.", { duration: 5000 });
+      } else if (err.message.includes("maximum of 5 invoices")) {
+        toast.error("Daily limit reached. You can submit up to 5 invoices per day. Try again tomorrow.", { duration: 5000 });
+      } else {
+        toast.error(err.message);
+      }
+    },
   });
 
   const handleSearch = () => {
@@ -415,21 +429,32 @@ export default function Invoices() {
         {/* ── STEP: SUCCESS ── */}
         {step === "success" && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center space-y-4">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
-              <CheckCircle size={32} className="text-green-500" />
+            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto animate-bounce">
+              <CheckCircle size={40} className="text-green-500" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-[#1B2A5E]">Invoice Submitted!</h3>
-              <p className="text-sm text-gray-500 mt-1">Your invoice has been received and is being processed.</p>
+              <h3 className="text-2xl font-bold text-[#1B2A5E]">Invoice Submitted!</h3>
+              {earnedPoints > 0 ? (
+                <p className="text-sm text-gray-500 mt-1">Your points have been added to your account.</p>
+              ) : (
+                <p className="text-sm text-gray-500 mt-1">Your invoice is under review. Points will be awarded once approved.</p>
+              )}
             </div>
-            <div className="bg-gradient-to-r from-[#1B2A5E] to-[#5B9BD5] rounded-xl p-5 text-white">
-              <p className="text-sm opacity-80 mb-1">Points Earned</p>
-              <p className="text-4xl font-bold">+{earnedPoints}</p>
-              <p className="text-sm opacity-80 mt-1">points added to your account</p>
-            </div>
+            {earnedPoints > 0 ? (
+              <div className="bg-gradient-to-r from-[#1B2A5E] to-[#5B9BD5] rounded-2xl p-6 text-white">
+                <p className="text-sm opacity-80 mb-1">Points Earned</p>
+                <p className="text-5xl font-bold">+{earnedPoints}</p>
+                <p className="text-sm opacity-80 mt-2">1 point per 10 KD spent</p>
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                <p className="text-sm font-semibold text-amber-700 mb-1">Pending Admin Review</p>
+                <p className="text-xs text-amber-600">Your invoice has been received and is awaiting approval. You will be notified via WhatsApp once points are awarded.</p>
+              </div>
+            )}
             <button
               onClick={handleReset}
-              className="w-full py-3 bg-[#1B2A5E] text-white rounded-xl text-sm font-semibold hover:opacity-90"
+              className="w-full py-3 bg-[#1B2A5E] text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
             >
               Submit Another Invoice
             </button>
