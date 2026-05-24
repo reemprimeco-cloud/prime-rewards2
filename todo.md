@@ -124,3 +124,14 @@
 - [x] Frontend: update SpinWheel page to show locked state with progress (e.g. "3/5 invoices to next spin")
 - [x] Frontend: show "Welcome spin" label for first-time spin
 - [x] Tests: update spin eligibility tests
+
+## Phase 12: Official Twilio WhatsApp Integration
+
+- [x] Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM=whatsapp:+15559682683 as env secrets
+- [x] Rewrite sendWhatsApp to use official sender, validate credentials on startup
+- [x] Add duplicate-send prevention: check whatsapp_logs for existing sent message per invoiceId+messageType before sending
+- [x] Add retry logic: exponential backoff, max 3 retries, update retryCount in whatsapp_logs
+- [x] Wire auto-send into reviewInvoice: send points_awarded message with customer name, earned points, invoice number, total points
+- [x] Add sendWithDuplicateCheck helper that wraps sendWhatsApp with log lookup
+- [x] Update admin WhatsApp logs page: show delivery status badge, retry button, mobile-friendly layout
+- [x] Add Twilio credential validation test

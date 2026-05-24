@@ -1,50 +1,61 @@
 import { ENV } from "./_core/env";
 
 /**
- * Twilio WhatsApp Notification Helper
- * Sends WhatsApp messages via Twilio for key loyalty events.
- * All messages are bilingual (Arabic + English) to match the app's language support.
+ * Twilio WhatsApp Notification Helper — Prime Rewards
+ *
+ * Official sender: whatsapp:+15559682683 ("Prime Rewards" business profile)
+ * Account SID / Auth Token sourced exclusively from environment variables.
+ *
+ * Features:
+ *  - Duplicate-send prevention (checks whatsapp_logs before sending)
+ *  - Exponential-backoff retry (max 3 attempts, stored in whatsapp_logs.retryCount)
+ *  - Full delivery logging (sent / failed / retrying)
+ *  - Bilingual messages (Arabic + English)
  */
 
-interface WhatsAppResult {
+export interface WhatsAppResult {
   success: boolean;
   messageSid?: string;
   error?: string;
 }
 
+// ─── Core Send ────────────────────────────────────────────────────────────────
+
 /**
- * Send a WhatsApp message via Twilio.
- * Phone number must be in E.164 format: +96512345678
+ * Normalise a phone number to E.164 format.
+ * Assumes Kuwait (+965) if no country code is present.
+ */
+export function normalisePhone(raw: string): string {
+  let p = raw.replace(/[\s\-()]/g, "");
+  if (!p.startsWith("+")) {
+    p = "+965" + p.replace(/^0+/, "");
+  }
+  return p;
+}
+
+/**
+ * Send a WhatsApp message via the official Twilio REST API.
+ * Uses TWILIO_WHATSAPP_FROM (whatsapp:+15559682683) as the sender.
  */
 export async function sendWhatsApp(
   toPhone: string,
   message: string
 ): Promise<WhatsAppResult> {
-  const sid = ENV.twilioAccountSid;
+  const sid   = ENV.twilioAccountSid;
   const token = ENV.twilioAuthToken;
-  const from = ENV.twilioWhatsappFrom;
+  const from  = ENV.twilioWhatsappFrom;   // whatsapp:+15559682683
 
   if (!sid || !token || !from) {
-    console.warn("[WhatsApp] Twilio credentials not configured — skipping notification");
+    console.warn("[WhatsApp] Twilio credentials not configured — skipping");
     return { success: false, error: "Twilio not configured" };
   }
 
-  // Normalize phone number — ensure it starts with + and has country code
-  let normalizedPhone = toPhone.replace(/\s+/g, "").replace(/-/g, "");
-  if (!normalizedPhone.startsWith("+")) {
-    // Assume Kuwait (+965) if no country code
-    normalizedPhone = "+965" + normalizedPhone.replace(/^0+/, "");
-  }
-
-  const to = `whatsapp:${normalizedPhone}`;
+  const normalised = normalisePhone(toPhone);
+  const to = normalised.startsWith("whatsapp:") ? normalised : `whatsapp:${normalised}`;
 
   try {
     const credentials = Buffer.from(`${sid}:${token}`).toString("base64");
-    const body = new URLSearchParams({
-      From: from,
-      To: to,
-      Body: message,
-    });
+    const body = new URLSearchParams({ From: from, To: to, Body: message });
 
     const response = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
@@ -62,15 +73,139 @@ export async function sendWhatsApp(
 
     if (!response.ok) {
       console.error("[WhatsApp] Send failed:", data.error_message);
-      return { success: false, error: data.error_message ?? "Unknown error" };
+      return { success: false, error: data.error_message ?? `HTTP ${response.status}` };
     }
 
-    console.log(`[WhatsApp] Sent to ${normalizedPhone} — SID: ${data.sid}`);
+    console.log(`[WhatsApp] Sent to ${normalised} — SID: ${data.sid}`);
     return { success: true, messageSid: data.sid };
   } catch (err: any) {
     console.error("[WhatsApp] Network error:", err?.message);
     return { success: false, error: err?.message ?? "Network error" };
   }
+}
+
+// ─── Retry Helper ─────────────────────────────────────────────────────────────
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = [2000, 5000, 10000]; // exponential backoff
+
+/**
+ * Send with automatic retry (up to MAX_RETRIES attempts).
+ * Updates whatsapp_logs.retryCount and status on each attempt.
+ */
+export async function sendWhatsAppWithRetry(
+  toPhone: string,
+  message: string,
+  logId?: number
+): Promise<WhatsAppResult> {
+  let lastResult: WhatsAppResult = { success: false, error: "Not attempted" };
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise(r => setTimeout(r, RETRY_DELAY_MS[attempt - 1] ?? 10000));
+      // Update log status to retrying
+      if (logId) {
+        try {
+          const { updateWhatsAppLog } = await import("./db");
+          await updateWhatsAppLog(logId, { status: "retrying", retryCount: attempt });
+        } catch {}
+      }
+    }
+
+    lastResult = await sendWhatsApp(toPhone, message);
+
+    if (lastResult.success) {
+      if (logId) {
+        try {
+          const { updateWhatsAppLog } = await import("./db");
+          await updateWhatsAppLog(logId, {
+            status: "sent",
+            messageSid: lastResult.messageSid,
+            retryCount: attempt,
+          });
+        } catch {}
+      }
+      return lastResult;
+    }
+  }
+
+  // All retries exhausted
+  if (logId) {
+    try {
+      const { updateWhatsAppLog } = await import("./db");
+      await updateWhatsAppLog(logId, {
+        status: "failed",
+        errorMessage: lastResult.error,
+        retryCount: MAX_RETRIES,
+      });
+    } catch {}
+  }
+
+  return lastResult;
+}
+
+// ─── Duplicate-Safe Send ──────────────────────────────────────────────────────
+
+/**
+ * Send a WhatsApp message only if no successful message of the same type
+ * has already been sent for this invoice.
+ *
+ * Returns { skipped: true } if a duplicate is detected.
+ */
+export async function sendWhatsAppIfNotDuplicate(opts: {
+  toPhone: string;
+  message: string;
+  customerId: number;
+  messageType: "points_awarded" | "welcome" | "tier_upgrade" | "reward_redeemed" | "expiry_warning" | "spin_win" | "manual";
+  invoiceId?: number;
+}): Promise<WhatsAppResult & { skipped?: boolean }> {
+  const { toPhone, message, customerId, messageType, invoiceId } = opts;
+
+  // Check for existing successful send
+  if (invoiceId) {
+    try {
+      const { getDb } = await import("./db");
+      const { whatsappLogs } = await import("../drizzle/schema");
+      const { and, eq } = await import("drizzle-orm");
+      const db = await getDb();
+      if (db) {
+        const existing = await db
+          .select({ id: whatsappLogs.id, status: whatsappLogs.status })
+          .from(whatsappLogs)
+          .where(
+            and(
+              eq(whatsappLogs.invoiceId, invoiceId),
+              eq(whatsappLogs.messageType, messageType)
+            )
+          )
+          .limit(1);
+
+        if (existing[0]?.status === "sent") {
+          console.log(`[WhatsApp] Duplicate prevented — invoice ${invoiceId} already sent (log ${existing[0].id})`);
+          return { success: true, skipped: true };
+        }
+      }
+    } catch {}
+  }
+
+  // Log the pending message
+  let logId: number | undefined;
+  try {
+    const { logWhatsApp } = await import("./db");
+    const rawLogId = await logWhatsApp({
+      customerId,
+      phone: toPhone,
+      messageType,
+      messageBody: message,
+      invoiceId,
+      status: "pending",
+    });
+    if (rawLogId != null) logId = rawLogId;
+  } catch {}
+
+  // Send with retry
+  const result = await sendWhatsAppWithRetry(toPhone, message, logId);
+  return result;
 }
 
 // ─── Message Templates ────────────────────────────────────────────────────────
@@ -92,7 +227,10 @@ export function welcomeMessage(customerName: string, points: number): string {
   ].join("\n");
 }
 
-/** Points awarded message — sent after invoice is approved */
+/**
+ * Points awarded message — sent automatically after invoice is approved.
+ * Variables: customer name, earned points, invoice number, total points.
+ */
 export function pointsAwardedMessage(
   customerName: string,
   pointsEarned: number,
@@ -108,8 +246,8 @@ export function pointsAwardedMessage(
     ``,
     `🧾 الفاتورة رقم: *${invoiceNumber}*`,
     `🧾 Invoice No.: *${invoiceNumber}*`,
-    `💵 المبلغ: *${invoiceAmount.toFixed(3)} KD*`,
-    `💵 Amount: *${invoiceAmount.toFixed(3)} KD*`,
+    `💵 المبلغ: *${parseFloat(String(invoiceAmount)).toFixed(3)} KD*`,
+    `💵 Amount: *${parseFloat(String(invoiceAmount)).toFixed(3)} KD*`,
     ``,
     `🎉 النقاط المكتسبة: *+${pointsEarned} نقطة*`,
     `🎉 Points Earned: *+${pointsEarned} points*`,
@@ -119,6 +257,8 @@ export function pointsAwardedMessage(
     ``,
     `استمر في التسوق لكسب المزيد من النقاط! 🚀`,
     `Keep shopping to earn more points! 🚀`,
+    ``,
+    `— Prime Rewards · PRIME Printing Co.`,
   ].join("\n");
 }
 
@@ -144,7 +284,6 @@ export function rewardRedeemedMessage(
     `💰 نقاطك المتبقية: *${remainingPoints} نقطة*`,
     `💰 Remaining Points: *${remainingPoints} points*`,
   ];
-
   if (couponCode) {
     lines.push(``);
     lines.push(`🎟️ كود الخصم: *${couponCode}*`);
@@ -152,11 +291,9 @@ export function rewardRedeemedMessage(
     lines.push(`احتفظ بهذا الكود واستخدمه في طلبك القادم!`);
     lines.push(`Keep this code and use it on your next order!`);
   }
-
   lines.push(``);
   lines.push(`شكراً لولائك لـ PRIME Printing Co.! 🌟`);
   lines.push(`Thank you for your loyalty to PRIME Printing Co.! 🌟`);
-
   return lines.join("\n");
 }
 
@@ -167,13 +304,9 @@ export function tierUpgradeMessage(
   tierAr: string
 ): string {
   const tierEmojis: Record<string, string> = {
-    Bronze: "🥉",
-    Silver: "🥈",
-    Gold: "🥇",
-    Platinum: "💎",
+    Bronze: "🥉", Silver: "🥈", Gold: "🥇", Platinum: "💎",
   };
   const emoji = tierEmojis[newTier] ?? "⭐";
-
   return [
     `${emoji} *ترقية المستوى! / Tier Upgrade!*`,
     ``,
@@ -229,7 +362,6 @@ export function spinWinMessage(
     `🎉 You won on the Spin Wheel: *${prize}*`,
     pointsWon ? `\n💰 تمت إضافة *${pointsWon} نقطة* إلى حسابك!\n💰 *${pointsWon} points* have been added to your account!` : ``,
     ``,
-    `استمر في اللعب كل يوم لفرص أكبر! 🚀`,
-    `Keep playing every day for bigger chances! 🚀`,
+    `— Prime Rewards · PRIME Printing Co.`,
   ].filter(l => l !== undefined).join("\n");
 }

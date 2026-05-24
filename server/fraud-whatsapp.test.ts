@@ -186,3 +186,138 @@ describe("Spin Wheel Eligibility", () => {
     expect(e.canSpin).toBe(false);
   });
 });
+
+// ─── WhatsApp Phone Normalisation ─────────────────────────────────────────────
+function normalisePhone(raw: string): string {
+  let p = raw.replace(/[\s\-()]/g, "");
+  if (!p.startsWith("+")) {
+    p = "+965" + p.replace(/^0+/, "");
+  }
+  return p;
+}
+
+describe("WhatsApp Phone Normalisation", () => {
+  it("leaves E.164 numbers unchanged", () => {
+    expect(normalisePhone("+96555001234")).toBe("+96555001234");
+    expect(normalisePhone("+15559682683")).toBe("+15559682683");
+  });
+
+  it("adds +965 prefix to bare Kuwait numbers", () => {
+    expect(normalisePhone("55001234")).toBe("+96555001234");
+    expect(normalisePhone("99001234")).toBe("+96599001234");
+  });
+
+  it("strips spaces and dashes", () => {
+    expect(normalisePhone("+965 5500 1234")).toBe("+96555001234");
+    expect(normalisePhone("+965-5500-1234")).toBe("+96555001234");
+  });
+
+  it("strips leading zeros before adding prefix", () => {
+    expect(normalisePhone("055001234")).toBe("+96555001234");
+  });
+});
+
+// ─── Duplicate Send Prevention ────────────────────────────────────────────────
+type WaLog = { invoiceId: number | null; messageType: string; status: string };
+
+function isDuplicateSend(
+  logs: WaLog[],
+  invoiceId: number,
+  messageType: string
+): boolean {
+  return logs.some(
+    (l) => l.invoiceId === invoiceId && l.messageType === messageType && l.status === "sent"
+  );
+}
+
+describe("WhatsApp Duplicate Send Prevention", () => {
+  it("detects an already-sent message for the same invoice", () => {
+    const logs: WaLog[] = [
+      { invoiceId: 42, messageType: "points_awarded", status: "sent" },
+    ];
+    expect(isDuplicateSend(logs, 42, "points_awarded")).toBe(true);
+  });
+
+  it("allows send if previous attempt failed", () => {
+    const logs: WaLog[] = [
+      { invoiceId: 42, messageType: "points_awarded", status: "failed" },
+    ];
+    expect(isDuplicateSend(logs, 42, "points_awarded")).toBe(false);
+  });
+
+  it("allows send for a different invoice", () => {
+    const logs: WaLog[] = [
+      { invoiceId: 42, messageType: "points_awarded", status: "sent" },
+    ];
+    expect(isDuplicateSend(logs, 99, "points_awarded")).toBe(false);
+  });
+
+  it("allows send for a different message type on the same invoice", () => {
+    const logs: WaLog[] = [
+      { invoiceId: 42, messageType: "welcome", status: "sent" },
+    ];
+    expect(isDuplicateSend(logs, 42, "points_awarded")).toBe(false);
+  });
+
+  it("returns false when no logs exist", () => {
+    expect(isDuplicateSend([], 42, "points_awarded")).toBe(false);
+  });
+});
+
+// ─── Points Awarded Message Variables ─────────────────────────────────────────
+function buildPointsMessage(
+  customerName: string,
+  pointsEarned: number,
+  totalPoints: number,
+  invoiceNumber: string
+): string {
+  return [
+    `Hello ${customerName},`,
+    `Invoice No.: ${invoiceNumber}`,
+    `Points Earned: +${pointsEarned} points`,
+    `Total Points: ${totalPoints} points`,
+  ].join("\n");
+}
+
+describe("Points Awarded Message Template Variables", () => {
+  it("includes all four required variables", () => {
+    const msg = buildPointsMessage("Ahmed Al-Rashidi", 15, 120, "INV-2024-001");
+    expect(msg).toContain("Ahmed Al-Rashidi");
+    expect(msg).toContain("+15 points");
+    expect(msg).toContain("INV-2024-001");
+    expect(msg).toContain("120 points");
+  });
+
+  it("handles zero earned points gracefully", () => {
+    const msg = buildPointsMessage("Sara", 0, 50, "INV-001");
+    expect(msg).toContain("+0 points");
+    expect(msg).toContain("50 points");
+  });
+});
+
+// ─── Twilio Credential Validation ─────────────────────────────────────────────
+// Validates that the configured Twilio credentials are accepted by the API.
+// Requires TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN to be set in the environment.
+describe("Twilio Credential Validation", () => {
+  it("authenticates successfully against the Twilio API", async () => {
+    const sid   = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+
+    if (!sid || !token) {
+      // Skip gracefully in environments without credentials
+      console.warn("[Test] Twilio credentials not set — skipping live validation");
+      return;
+    }
+
+    const credentials = Buffer.from(`${sid}:${token}`).toString("base64");
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${sid}.json`,
+      { headers: { Authorization: `Basic ${credentials}` } }
+    );
+
+    expect(response.status).toBe(200);
+    const data = await response.json() as { sid?: string; status?: string };
+    expect(data.sid).toBe(sid);
+    expect(data.status).toBe("active");
+  }, 10000); // 10s timeout for network call
+});

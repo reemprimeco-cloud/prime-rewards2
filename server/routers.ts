@@ -67,6 +67,8 @@ import { nanoid } from "nanoid";
 import { lookupQBInvoice, lookupQBInvoiceByPhone, isQBConnected } from "./quickbooks";
 import {
   sendWhatsApp,
+  sendWhatsAppIfNotDuplicate,
+  sendWhatsAppWithRetry,
   welcomeMessage,
   pointsAwardedMessage,
   rewardRedeemedMessage,
@@ -405,41 +407,38 @@ export const appRouter = router({
       }))
       .mutation(async ({ ctx, input }) => {
         const result = await reviewInvoice(input.invoiceId, input.status, ctx.user.id, input.rejectionReason);
-        // Send WhatsApp notification when invoice is approved and log it
+        // Auto-send WhatsApp on approval — with duplicate prevention and retry
         if (input.status === "approved" && result) {
-          try {
-            const db2 = await getDb();
-            const { invoices: invTable } = await import("../drizzle/schema");
-            const { eq: eqOp } = await import("drizzle-orm");
-            const invRows = db2 ? await db2.select().from(invTable).where(eqOp(invTable.id, input.invoiceId)).limit(1) : [];
-            const inv = invRows[0];
-            const customer = await getCustomerById((result as any).customerId ?? inv?.customerId);
-            if (customer?.phone && inv) {
-              const msg = pointsAwardedMessage(
-                customer.fullName,
-                inv.pointsEarned ?? 0,
-                customer.totalPoints,
-                inv.invoiceNumber ?? "",
-                parseFloat(inv.invoiceAmount ?? "0")
-              );
-              const logId = await logWhatsApp({
-                customerId: customer.id,
-                phone: customer.phone,
-                messageType: "points_awarded",
-                messageBody: msg,
-                invoiceId: inv.id,
-                status: "pending",
-              });
-              const waResult = await sendWhatsApp(customer.phone, msg);
-              if (logId) {
-                await updateWhatsAppLog(logId, {
-                  status: waResult.success ? "sent" : "failed",
-                  messageSid: waResult.messageSid,
-                  errorMessage: waResult.error,
+          // Fire-and-forget so the admin response is not blocked
+          (async () => {
+            try {
+              const db2 = await getDb();
+              const { invoices: invTable } = await import("../drizzle/schema");
+              const { eq: eqOp } = await import("drizzle-orm");
+              const invRows = db2 ? await db2.select().from(invTable).where(eqOp(invTable.id, input.invoiceId)).limit(1) : [];
+              const inv = invRows[0];
+              const customer = await getCustomerById((result as any).customerId ?? inv?.customerId);
+              if (customer?.phone && inv) {
+                const msg = pointsAwardedMessage(
+                  customer.fullName,
+                  inv.pointsEarned ?? 0,
+                  customer.totalPoints,
+                  inv.invoiceNumber ?? "",
+                  parseFloat(inv.invoiceAmount ?? "0")
+                );
+                // sendWhatsAppIfNotDuplicate handles: duplicate check, logging, retry (up to 3x)
+                await sendWhatsAppIfNotDuplicate({
+                  toPhone: customer.phone,
+                  message: msg,
+                  customerId: customer.id,
+                  messageType: "points_awarded",
+                  invoiceId: inv.id,
                 });
               }
+            } catch (e) {
+              console.error("[WhatsApp] Invoice approval notification failed:", e);
             }
-          } catch {}
+          })();
         }
         return result;
       }),
@@ -867,13 +866,10 @@ export const appRouter = router({
         const rows = await db.select().from(wlTable).where(eqOp(wlTable.id, input.logId)).limit(1);
         const log = rows[0];
         if (!log) throw new TRPCError({ code: "NOT_FOUND" });
-        const result = await sendWhatsApp(log.phone, log.messageBody);
-        await updateWhatsAppLog(log.id, {
-          status: result.success ? "sent" : "failed",
-          messageSid: result.messageSid,
-          errorMessage: result.error,
-          retryCount: (log.retryCount ?? 0) + 1,
-        });
+        // Mark as retrying before attempting
+        await updateWhatsAppLog(log.id, { status: "retrying", retryCount: (log.retryCount ?? 0) + 1 });
+        // Use retry-capable send (up to 3 attempts with backoff)
+        const result = await sendWhatsAppWithRetry(log.phone, log.messageBody, log.id);
         return { success: result.success };
       }),
   }),
