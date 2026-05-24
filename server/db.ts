@@ -829,3 +829,41 @@ export async function mergePendingCustomer(phone: string, customerId: number) {
   await addPoints(customerId, pending.pendingPoints, "bonus", `Merged pending rewards from phone ${phone}`, undefined, "pending_merge");
   await db.update(pendingCustomers).set({ mergedToCustomerId: customerId, mergedAt: new Date() }).where(eq(pendingCustomers.phone, phone));
 }
+
+// ─── Duplicate Phone Detection ─────────────────────────────────────────────────
+export async function getCustomerByPhone(phone: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const cleaned = phone.replace(/\s|-/g, "");
+  const result = await db.select().from(customers).where(eq(customers.phone, cleaned)).limit(1);
+  return result[0] ?? null;
+}
+
+// ─── Reset Invoice Claim (Admin) ───────────────────────────────────────────────
+export async function resetInvoiceClaim(invoiceId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+
+  // Fetch the invoice to check if it was previously approved
+  const invoiceRows = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+  const invoice = invoiceRows[0];
+  if (!invoice) throw new Error("Invoice not found");
+
+  // If it was approved, reverse the points that were awarded
+  if (invoice.status === "approved" && invoice.pointsEarned > 0) {
+    await addPoints(
+      invoice.customerId,
+      -invoice.pointsEarned,
+      "manual",
+      `Points reversed: invoice #${invoice.invoiceNumber} claim reset by admin`,
+      invoiceId,
+      "invoice_reset"
+    );
+  }
+
+  // Reset the invoice status back to pending
+  await db
+    .update(invoices)
+    .set({ status: "pending", reviewedAt: null, reviewedBy: null, rejectionReason: null })
+    .where(eq(invoices.id, invoiceId));
+}

@@ -49,6 +49,8 @@ import {
   blockSuspiciousAccount,
   unblockSuspiciousAccount,
   isCustomerBlocked,
+  getCustomerByPhone,
+  resetInvoiceClaim,
 } from "./db";
 import { eq, count, desc, and, gte } from "drizzle-orm";
 import {
@@ -123,7 +125,7 @@ export const appRouter = router({
         const customer = await getCustomerByUserId(ctx.user.id);
         if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
 
-        // Server-side Kuwait phone validation
+        // Server-side Kuwait phone validation + duplicate check
         if (input.phone) {
           const cleaned = input.phone.replace(/\s|-/g, "");
           const kuwaitRegex = /^(\+965|00965|965)?[5692][0-9]{7}$/;
@@ -131,6 +133,14 @@ export const appRouter = router({
             throw new TRPCError({
               code: "BAD_REQUEST",
               message: "Invalid phone number. Please enter a valid Kuwait phone number (e.g. +965 5500 1234).",
+            });
+          }
+          // Prevent duplicate phone numbers across accounts
+          const existingWithPhone = await getCustomerByPhone(cleaned);
+          if (existingWithPhone && existingWithPhone.id !== customer.id) {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "This phone number is already registered to another account. Please use a different number.",
             });
           }
         }
@@ -278,6 +288,12 @@ export const appRouter = router({
         const customer = await getCustomerByUserId(ctx.user.id);
         if (!customer) throw new TRPCError({ code: "NOT_FOUND" });
 
+        // Capture client IP for fraud tracking
+        const clientIp: string =
+          (ctx.req as any)?.headers?.["x-forwarded-for"]?.split(",")[0]?.trim() ||
+          (ctx.req as any)?.socket?.remoteAddress ||
+          "unknown";
+
         // Block check — prevent blocked accounts from submitting
         const blocked = await isCustomerBlocked(customer.id);
         if (blocked) {
@@ -349,6 +365,7 @@ export const appRouter = router({
               attemptType: "duplicate_invoice",
               invoiceNumber: input.invoiceNumber,
               details: "Customer attempted to submit a duplicate invoice number",
+              ipAddress: clientIp,
             }).catch(() => {});
             throw new TRPCError({ code: "CONFLICT", message: "This invoice number has already been submitted." });
           }
@@ -358,6 +375,7 @@ export const appRouter = router({
               attemptType: "rate_limit",
               invoiceNumber: input.invoiceNumber,
               details: "Customer exceeded daily invoice submission limit",
+              ipAddress: clientIp,
             }).catch(() => {});
             throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "You can submit a maximum of 5 invoices per day." });
           }
@@ -424,9 +442,16 @@ export const appRouter = router({
         }
         return result;
       }),
+
+    resetClaim: adminProcedure
+      .input(z.object({ invoiceId: z.number() }))
+      .mutation(async ({ input }) => {
+        await resetInvoiceClaim(input.invoiceId);
+        return { success: true };
+      }),
   }),
 
-  // ─── Rewards ──────────────────────────────────────────────────────────────
+  // ─── Rewards ───────────────────────────────────────────────────────────
   rewards: router({
     list: publicProcedure.query(() => getActiveRewards()),
 

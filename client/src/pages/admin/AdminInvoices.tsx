@@ -3,7 +3,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
 import { toast } from "sonner";
-import { FileText, CheckCircle, XCircle, AlertTriangle, Clock, Loader2, Search } from "lucide-react";
+import { FileText, CheckCircle, XCircle, AlertTriangle, Clock, Loader2, Search, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_CONFIG_EN = {
@@ -33,6 +33,14 @@ export default function AdminInvoices() {
       toast.success(`Invoice ${vars.status} successfully!`);
       refetch();
       utils.admin.analytics.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const resetClaimMutation = trpc.invoices.resetClaim.useMutation({
+    onSuccess: () => {
+      toast.success(language === "ar" ? "تم إعادة تعيين المطالبة بالفاتورة" : "Invoice claim reset to pending");
+      refetch();
     },
     onError: (err) => toast.error(err.message),
   });
@@ -165,6 +173,24 @@ export default function AdminInvoices() {
                             {language === "ar" ? "إبلاغ" : "Flag"}
                           </button>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Reset Claim button for approved/rejected/flagged invoices */}
+                    {(invoice.status === "approved" || invoice.status === "rejected" || invoice.status === "flagged") && (
+                      <div className="mt-2">
+                        <button
+                          onClick={() => {
+                            if (window.confirm(language === "ar" ? "هل تريد إعادة تعيين هذه الفاتورة إلى قيد المراجعة؟" : "Reset this invoice back to pending review?")) {
+                              resetClaimMutation.mutate({ invoiceId: invoice.id });
+                            }
+                          }}
+                          disabled={resetClaimMutation.isPending}
+                          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#1B2A5E] border border-gray-200 hover:border-[#1B2A5E] px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <RotateCcw size={12} />
+                          {language === "ar" ? "إعادة تعيين" : "Reset Claim"}
+                        </button>
                       </div>
                     )}
 

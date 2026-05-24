@@ -98,21 +98,21 @@
 - [x] Run DB migrations for new tables
 - [x] Backend: enforce 1pt per 10 KD points calculation (floor division)
 - [x] Backend: rate limiting (max 5 invoices/day, cooldown between submissions)
-- [ ] Backend: IP tracking on invoice submissions
+- [x] Backend: IP tracking on invoice submissions
 - [x] Backend: failed attempt counter — auto-flag after 5 failed attempts
 - [x] Backend: auto-block suspicious accounts after threshold
 - [x] Backend: WhatsApp delivery log (save to whatsapp_logs table with retry)
 - [x] Backend: WhatsApp resend endpoint for admin
 - [x] Backend: Kuwait phone validation (+965, 8 digits after code)
-- [ ] Backend: prevent duplicate phone accounts on registration
+- [x] Backend: prevent duplicate phone accounts on registration
 - [x] Admin page: WhatsApp Logs (/admin/whatsapp)
 - [x] Admin page: Suspicious Accounts (/admin/suspicious)
 - [x] Admin page: Reward Analytics (/admin/analytics)
 - [x] Admin: block/unblock suspicious users
 - [x] Admin: resend WhatsApp message button
-- [ ] Admin: reset invoice claim
+- [x] Admin: reset invoice claim
 - [x] UX: better error messages (invoice not found, already used, amount mismatch, suspicious, WhatsApp failure)
 - [x] UX: loading states and success animations on invoice submission
 - [x] UX: Kuwait phone validation on profile page
-- [ ] UX: mobile responsiveness improvements
-- [ ] Remove broken/unused components
+- [x] UX: mobile responsiveness improvements
+- [x] Remove broken/unused components
