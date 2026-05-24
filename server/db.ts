@@ -471,25 +471,65 @@ export async function checkAndAwardBadges(customerId: number) {
   }
 }
 
-// ─── Spin Wheel ────────────────────────────────────────────────────────────────
-export async function canSpinToday(customerId: number): Promise<boolean> {
+// ─── Spin Wheel ──────────────────────────────────────────────────────
+// Eligibility rules:
+//   • First-time registered users get 1 free welcome spin (total spins = 0 and no invoices required)
+//   • After that, 1 spin is unlocked for every 5 approved invoices
+//   • Spins accumulate: at 5 approved invoices → 1 spin, at 10 → 2 spins, etc.
+//   • A spin is consumed when used; remaining = total_earned - total_used
+
+export async function getSpinEligibility(customerId: number): Promise<{
+  canSpin: boolean;
+  totalSpinsEarned: number;
+  totalSpinsUsed: number;
+  spinsRemaining: number;
+  approvedInvoiceCount: number;
+  nextUnlockAt: number;  // approved invoices needed to unlock next spin
+  isWelcomeSpin: boolean;
+}> {
   const db = await getDb();
-  if (!db) return false;
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
-  const result = await db
-    .select({ count: count() })
-    .from(spinResults)
-    .where(and(eq(spinResults.customerId, customerId), gte(spinResults.spunAt, dayStart)));
-  return (result[0]?.count ?? 0) === 0;
+  if (!db) return { canSpin: false, totalSpinsEarned: 0, totalSpinsUsed: 0, spinsRemaining: 0, approvedInvoiceCount: 0, nextUnlockAt: 5, isWelcomeSpin: false };
+
+  // Count total spins used
+  const usedResult = await db.select({ count: count() }).from(spinResults).where(eq(spinResults.customerId, customerId));
+  const totalSpinsUsed = usedResult[0]?.count ?? 0;
+
+  // Count approved invoices
+  const approvedResult = await db.select({ count: count() }).from(invoices)
+    .where(and(eq(invoices.customerId, customerId), eq(invoices.status, "approved")));
+  const approvedInvoiceCount = approvedResult[0]?.count ?? 0;
+
+  // Welcome spin: if they have never spun before (totalSpinsUsed === 0), they get 1 free spin
+  const welcomeSpinEarned = 1;
+
+  // Invoice-based spins: 1 per every 5 approved invoices
+  const invoiceSpinsEarned = Math.floor(approvedInvoiceCount / 5);
+
+  const totalSpinsEarned = welcomeSpinEarned + invoiceSpinsEarned;
+  const spinsRemaining = Math.max(0, totalSpinsEarned - totalSpinsUsed);
+  const canSpin = spinsRemaining > 0;
+
+  // Next unlock: next multiple of 5 approved invoices
+  const nextMilestone = (Math.floor(approvedInvoiceCount / 5) + 1) * 5;
+  const nextUnlockAt = nextMilestone;
+
+  const isWelcomeSpin = totalSpinsUsed === 0;
+
+  return { canSpin, totalSpinsEarned, totalSpinsUsed, spinsRemaining, approvedInvoiceCount, nextUnlockAt, isWelcomeSpin };
+}
+
+// Keep canSpinToday as a compatibility alias
+export async function canSpinToday(customerId: number): Promise<boolean> {
+  const eligibility = await getSpinEligibility(customerId);
+  return eligibility.canSpin;
 }
 
 export async function performSpin(customerId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
 
-  const eligible = await canSpinToday(customerId);
-  if (!eligible) throw new Error("ALREADY_SPUN_TODAY");
+  const eligibility = await getSpinEligibility(customerId);
+  if (!eligibility.canSpin) throw new Error("SPIN_NOT_AVAILABLE");
 
   const segments: Array<{ rewardType: "points" | "discount" | "free_delivery" | "free_design" | "double_points" | "no_win"; value: number; description: string; weight: number }> = [
     { rewardType: "points", value: 50, description: "50 Bonus Points!", weight: 25 },

@@ -116,3 +116,11 @@
 - [x] UX: Kuwait phone validation on profile page
 - [x] UX: mobile responsiveness improvements
 - [x] Remove broken/unused components
+
+## Phase 11: Spin Wheel Eligibility
+
+- [x] Backend: replace daily-spin logic with milestone-based eligibility (1 free spin on registration, then 1 spin per 5 approved invoices)
+- [x] Backend: canSpin returns eligibility details (spins used, approved invoices count, next unlock threshold)
+- [x] Frontend: update SpinWheel page to show locked state with progress (e.g. "3/5 invoices to next spin")
+- [x] Frontend: show "Welcome spin" label for first-time spin
+- [x] Tests: update spin eligibility tests

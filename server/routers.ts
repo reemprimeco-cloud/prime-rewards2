@@ -51,6 +51,7 @@ import {
   isCustomerBlocked,
   getCustomerByPhone,
   resetInvoiceClaim,
+  getSpinEligibility,
 } from "./db";
 import { eq, count, desc, and, gte } from "drizzle-orm";
 import {
@@ -579,9 +580,8 @@ export const appRouter = router({
   spin: router({
     canSpin: protectedProcedure.query(async ({ ctx }) => {
       const customer = await getCustomerByUserId(ctx.user.id);
-      if (!customer) return { canSpin: false };
-      const eligible = await canSpinToday(customer.id);
-      return { canSpin: eligible };
+      if (!customer) return { canSpin: false, totalSpinsEarned: 0, totalSpinsUsed: 0, spinsRemaining: 0, approvedInvoiceCount: 0, nextUnlockAt: 5, isWelcomeSpin: false };
+      return getSpinEligibility(customer.id);
     }),
 
     spin: protectedProcedure.mutation(async ({ ctx }) => {
@@ -601,8 +601,8 @@ export const appRouter = router({
         }
         return result;
       } catch (err: any) {
-        if (err.message === "ALREADY_SPUN_TODAY") {
-          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "You've already used your daily spin. Come back tomorrow!" });
+        if (err.message === "SPIN_NOT_AVAILABLE" || err.message === "ALREADY_SPUN_TODAY") {
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "No spins available. Submit 5 approved invoices to unlock your next spin!" });
         }
         throw err;
       }

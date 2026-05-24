@@ -3,7 +3,7 @@ import { trpc } from "@/lib/trpc";
 import CustomerLayout from "@/components/CustomerLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, Star, Gift, Truck, Palette, Zap, Loader2, Clock } from "lucide-react";
+import { RotateCcw, Star, Gift, Truck, Palette, Zap, Loader2, Lock, FileText, Trophy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getLoginUrl } from "@/const";
@@ -33,11 +33,12 @@ const SEGMENTS_AR = [
   { label: "حظاً أوفر", color: "#94A3B8", textColor: "#fff" },
 ];
 
-function SpinWheelCanvas({ spinning, targetIndex, onAnimationEnd, language }: {
+function SpinWheelCanvas({ spinning, targetIndex, onAnimationEnd, language, locked }: {
   spinning: boolean;
   targetIndex: number;
   onAnimationEnd: () => void;
   language: string;
+  locked: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rotationRef = useRef(0);
@@ -77,7 +78,7 @@ function SpinWheelCanvas({ spinning, targetIndex, onAnimationEnd, language }: {
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, radius, startAngle, endAngle);
       ctx.closePath();
-      ctx.fillStyle = seg.color;
+      ctx.fillStyle = locked ? "#d1d5db" : seg.color;
       ctx.fill();
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
@@ -87,7 +88,7 @@ function SpinWheelCanvas({ spinning, targetIndex, onAnimationEnd, language }: {
       ctx.translate(cx, cy);
       ctx.rotate(startAngle + segAngle / 2);
       ctx.textAlign = "right";
-      ctx.fillStyle = seg.textColor;
+      ctx.fillStyle = locked ? "#9ca3af" : seg.textColor;
       ctx.font = `bold ${canvas.width < 280 ? 9 : 11}px Noto Sans Arabic, Inter, sans-serif`;
       ctx.fillText(seg.label, radius - 12, 4);
       ctx.restore();
@@ -95,20 +96,20 @@ function SpinWheelCanvas({ spinning, targetIndex, onAnimationEnd, language }: {
 
     ctx.beginPath();
     ctx.arc(cx, cy, 24, 0, 2 * Math.PI);
-    ctx.fillStyle = "#1B2A5E";
+    ctx.fillStyle = locked ? "#9ca3af" : "#1B2A5E";
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    ctx.fillStyle = "#5B9BD5";
+    ctx.fillStyle = locked ? "#e5e7eb" : "#5B9BD5";
     ctx.font = "bold 16px serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("★", cx, cy);
+    ctx.fillText(locked ? "🔒" : "★", cx, cy);
   };
 
-  useEffect(() => { drawWheel(0); }, [language]);
+  useEffect(() => { drawWheel(0); }, [language, locked]);
 
   useEffect(() => {
     if (!spinning) return;
@@ -146,7 +147,7 @@ function SpinWheelCanvas({ spinning, targetIndex, onAnimationEnd, language }: {
         width={280}
         height={280}
         className="rounded-full"
-        style={{ maxWidth: "100%", aspectRatio: "1" }}
+        style={{ maxWidth: "100%", aspectRatio: "1", opacity: locked ? 0.6 : 1, transition: "opacity 0.3s" }}
       />
     </div>
   );
@@ -206,6 +207,16 @@ export default function SpinWheel() {
   }
 
   const canSpin = spinStatus?.canSpin ?? false;
+  const isWelcomeSpin = spinStatus?.isWelcomeSpin ?? false;
+  const approvedInvoiceCount = spinStatus?.approvedInvoiceCount ?? 0;
+  const nextUnlockAt = spinStatus?.nextUnlockAt ?? 5;
+  const spinsRemaining = spinStatus?.spinsRemaining ?? 0;
+
+  // Progress toward next spin unlock
+  const lastMilestone = Math.floor(approvedInvoiceCount / 5) * 5;
+  const progressInCurrentBatch = approvedInvoiceCount - lastMilestone;
+  const progressPercent = (progressInCurrentBatch / 5) * 100;
+  const invoicesNeeded = nextUnlockAt - approvedInvoiceCount;
 
   const prizes = [
     { icon: Star, label: language === "ar" ? "50 نقطة" : "50 Points", color: "#1B2A5E" },
@@ -230,22 +241,49 @@ export default function SpinWheel() {
 
         <div className="container max-w-lg -mt-8 pb-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
-            <div className="flex items-center justify-center gap-2 mb-6">
+
+            {/* Points display */}
+            <div className="flex items-center justify-center gap-2 mb-4">
               <Star size={16} className="text-yellow-400" fill="#FBBF24" />
               <span className="text-sm font-semibold text-gray-600">
                 {(customer?.totalPoints ?? 0).toLocaleString()} {t.points_abbr}
               </span>
             </div>
 
+            {/* Welcome spin badge */}
+            {canSpin && isWelcomeSpin && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-4 inline-flex items-center gap-2 bg-yellow-50 border border-yellow-200 text-yellow-700 text-xs font-semibold px-4 py-2 rounded-full"
+              >
+                <Trophy size={14} />
+                {language === "ar" ? "🎁 دورة ترحيبية مجانية! مرحباً بك في PRIME Rewards" : "🎁 Welcome Spin — your free first spin!"}
+              </motion.div>
+            )}
+
+            {/* Spins remaining badge */}
+            {canSpin && !isWelcomeSpin && spinsRemaining > 0 && (
+              <div className="mb-4 inline-flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-xs font-semibold px-4 py-2 rounded-full">
+                <RotateCcw size={14} />
+                {language === "ar"
+                  ? `${spinsRemaining} دورة متاحة`
+                  : `${spinsRemaining} spin${spinsRemaining > 1 ? "s" : ""} available`}
+              </div>
+            )}
+
+            {/* Wheel */}
             <div className="flex justify-center mb-6">
               <SpinWheelCanvas
                 spinning={spinning}
                 targetIndex={targetIndex}
                 onAnimationEnd={handleAnimationEnd}
                 language={language}
+                locked={!canSpin}
               />
             </div>
 
+            {/* Spin button or locked state */}
             {canSpin ? (
               <button
                 onClick={handleSpin}
@@ -260,12 +298,49 @@ export default function SpinWheel() {
                 {spinning ? t.spin_spinning : t.spin_spin_btn}
               </button>
             ) : (
-              <div className="flex flex-col items-center gap-2">
-                <div className="flex items-center gap-2 text-gray-400 text-sm">
-                  <Clock size={16} />
-                  <span>{t.spin_already_spun}</span>
+              <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto">
+                {/* Locked icon */}
+                <div className="flex items-center gap-2 text-gray-500 font-semibold text-sm">
+                  <Lock size={18} className="text-gray-400" />
+                  {language === "ar" ? "العجلة مقفلة" : "Wheel Locked"}
                 </div>
-                <p className="text-xs text-gray-400">{t.spin_come_back}</p>
+
+                {/* Progress bar toward next spin */}
+                <div className="w-full">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1.5">
+                    <span className="flex items-center gap-1">
+                      <FileText size={12} />
+                      {language === "ar"
+                        ? `${approvedInvoiceCount} فاتورة معتمدة`
+                        : `${approvedInvoiceCount} approved invoice${approvedInvoiceCount !== 1 ? "s" : ""}`}
+                    </span>
+                    <span className="font-semibold text-[#1B2A5E]">
+                      {language === "ar"
+                        ? `${invoicesNeeded} للفتح`
+                        : `${invoicesNeeded} to unlock`}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${progressPercent}%` }}
+                      transition={{ duration: 0.8, ease: "easeOut" }}
+                      className="h-full bg-gradient-to-r from-[#1B2A5E] to-[#5B9BD5] rounded-full"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    {language === "ar"
+                      ? `أكمل ${invoicesNeeded} فاتورة معتمدة أخرى لفتح دورة جديدة`
+                      : `Submit ${invoicesNeeded} more approved invoice${invoicesNeeded !== 1 ? "s" : ""} to unlock your next spin`}
+                  </p>
+                </div>
+
+                {/* How it works hint */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 text-center leading-relaxed">
+                  {language === "ar"
+                    ? "🎯 كل 5 فواتير معتمدة = دورة مجانية واحدة"
+                    : "🎯 Every 5 approved invoices = 1 free spin"}
+                </div>
               </div>
             )}
           </div>
@@ -280,6 +355,44 @@ export default function SpinWheel() {
                 <div key={label} className="flex flex-col items-center gap-1 p-2 rounded-xl bg-gray-50">
                   <Icon size={18} style={{ color }} />
                   <span className="text-xs text-gray-600 text-center leading-tight">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* How it works card */}
+          <div className="mt-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="font-semibold text-[#1B2A5E] mb-3">
+              {language === "ar" ? "كيف تعمل؟" : "How It Works"}
+            </h3>
+            <div className="space-y-3">
+              {[
+                {
+                  step: "1",
+                  en: "New members get 1 free welcome spin when they join.",
+                  ar: "يحصل الأعضاء الجدد على دورة ترحيبية مجانية عند الانضمام.",
+                },
+                {
+                  step: "2",
+                  en: "Submit invoices and get them approved by the admin.",
+                  ar: "قدّم فواتيرك واحصل على موافقة المسؤول.",
+                },
+                {
+                  step: "3",
+                  en: "Every 5 approved invoices unlocks 1 new spin.",
+                  ar: "كل 5 فواتير معتمدة تفتح دورة جديدة.",
+                },
+                {
+                  step: "4",
+                  en: "Spins accumulate — use them whenever you like!",
+                  ar: "تتراكم الدورات — استخدمها متى تشاء!",
+                },
+              ].map(({ step, en, ar }) => (
+                <div key={step} className="flex items-start gap-3">
+                  <div className="w-6 h-6 rounded-full bg-[#1B2A5E] text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                    {step}
+                  </div>
+                  <p className="text-sm text-gray-600">{language === "ar" ? ar : en}</p>
                 </div>
               ))}
             </div>

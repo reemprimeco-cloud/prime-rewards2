@@ -116,3 +116,73 @@ describe("Tier Calculation", () => {
     expect(calculateTier(9999)).toBe("Platinum");
   });
 });
+
+// ─── Spin Wheel Eligibility ────────────────────────────────────────────────────
+// Rules:
+//   - Welcome spin: 1 free spin for brand-new users (totalSpinsUsed === 0)
+//   - Invoice spins: 1 spin per every 5 approved invoices
+//   - spinsRemaining = totalSpinsEarned - totalSpinsUsed
+function calcSpinEligibility(totalSpinsUsed: number, approvedInvoiceCount: number) {
+  const welcomeSpinEarned = 1;
+  const invoiceSpinsEarned = Math.floor(approvedInvoiceCount / 5);
+  const totalSpinsEarned = welcomeSpinEarned + invoiceSpinsEarned;
+  const spinsRemaining = Math.max(0, totalSpinsEarned - totalSpinsUsed);
+  const canSpin = spinsRemaining > 0;
+  const lastMilestone = Math.floor(approvedInvoiceCount / 5) * 5;
+  const nextUnlockAt = lastMilestone + 5;
+  const isWelcomeSpin = totalSpinsUsed === 0;
+  return { canSpin, spinsRemaining, totalSpinsEarned, isWelcomeSpin, nextUnlockAt };
+}
+
+describe("Spin Wheel Eligibility", () => {
+  it("new user with 0 spins used gets welcome spin", () => {
+    const e = calcSpinEligibility(0, 0);
+    expect(e.canSpin).toBe(true);
+    expect(e.isWelcomeSpin).toBe(true);
+    expect(e.spinsRemaining).toBe(1);
+  });
+
+  it("after using welcome spin, wheel is locked until 5 approved invoices", () => {
+    const e = calcSpinEligibility(1, 0);
+    expect(e.canSpin).toBe(false);
+    expect(e.spinsRemaining).toBe(0);
+  });
+
+  it("locked with 1-4 approved invoices after welcome spin used", () => {
+    expect(calcSpinEligibility(1, 1).canSpin).toBe(false);
+    expect(calcSpinEligibility(1, 4).canSpin).toBe(false);
+  });
+
+  it("unlocks at exactly 5 approved invoices", () => {
+    const e = calcSpinEligibility(1, 5);
+    expect(e.canSpin).toBe(true);
+    expect(e.spinsRemaining).toBe(1);
+  });
+
+  it("unlocks again at 10 approved invoices", () => {
+    const e = calcSpinEligibility(2, 10);
+    expect(e.canSpin).toBe(true);
+    expect(e.spinsRemaining).toBe(1);
+  });
+
+  it("accumulates multiple spins if not used", () => {
+    // 15 approved invoices = 3 invoice spins + 1 welcome = 4 total; used 1
+    const e = calcSpinEligibility(1, 15);
+    expect(e.spinsRemaining).toBe(3);
+    expect(e.canSpin).toBe(true);
+  });
+
+  it("nextUnlockAt is always the next multiple of 5", () => {
+    expect(calcSpinEligibility(1, 0).nextUnlockAt).toBe(5);
+    expect(calcSpinEligibility(1, 5).nextUnlockAt).toBe(10);
+    expect(calcSpinEligibility(1, 7).nextUnlockAt).toBe(10);
+    expect(calcSpinEligibility(1, 10).nextUnlockAt).toBe(15);
+  });
+
+  it("spinsRemaining never goes below 0", () => {
+    // Edge case: more spins used than earned (data inconsistency)
+    const e = calcSpinEligibility(99, 0);
+    expect(e.spinsRemaining).toBe(0);
+    expect(e.canSpin).toBe(false);
+  });
+});
