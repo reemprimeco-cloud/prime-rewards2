@@ -52,6 +52,12 @@ import {
   getCustomerByPhone,
   resetInvoiceClaim,
   getSpinEligibility,
+  tryAutoApprove,
+  addToRegistry,
+  updateRegistry,
+  deleteFromRegistry,
+  getRegistry,
+  lookupRegistry,
 } from "./db";
 import { eq, count, desc, and, gte } from "drizzle-orm";
 import {
@@ -359,7 +365,47 @@ export const appRouter = router({
             source: qbValidated ? "quickbooks" : "manual",
             pendingReview,
           });
-          return { ...invoice, qbValidated, qbCustomerName, pendingReview };
+
+          // ── Auto-approval engine ──────────────────────────────────────────
+          // Try to auto-approve by matching invoice number + customer phone
+          // against the admin-managed invoice registry.
+          let autoApproveResult: "approved" | "phone_mismatch" | "not_in_registry" | "already_used" | "skipped" = "skipped";
+          try {
+            const autoResult = await tryAutoApprove(invoice.id);
+            autoApproveResult = autoResult.result;
+            if (autoResult.result === "approved") {
+              // Send WhatsApp notification immediately (fire-and-forget)
+              if (customer.phone) {
+                const updatedCustomer = await getCustomerByUserId(ctx.user.id);
+                const msg = pointsAwardedMessage(
+                  customer.fullName,
+                  invoice.pointsEarned ?? 0,
+                  updatedCustomer?.totalPoints ?? 0,
+                  invoice.invoiceNumber ?? "",
+                  parseFloat(invoice.invoiceAmount ?? "0")
+                );
+                sendWhatsAppIfNotDuplicate({
+                  toPhone: customer.phone,
+                  message: msg,
+                  customerId: customer.id,
+                  messageType: "points_awarded",
+                  invoiceId: invoice.id,
+                }).catch(() => {});
+              }
+            } else if (autoResult.result === "phone_mismatch") {
+              // Phone mismatch — leave as pending for admin review, already logged as failed attempt
+              await createNotification(
+                customer.id,
+                "promotion",
+                "Invoice Under Review",
+                `Your invoice #${invoice.invoiceNumber} is under review. Our team will verify it shortly.`
+              );
+            }
+          } catch (autoErr) {
+            console.error("[AutoApprove] Error:", autoErr);
+          }
+
+          return { ...invoice, qbValidated, qbCustomerName, pendingReview, autoApproveResult };
         } catch (err: any) {
           if (err.message === "DUPLICATE_INVOICE") {
             // Log the failed attempt
@@ -871,6 +917,69 @@ export const appRouter = router({
         // Use retry-capable send (up to 3 attempts with backoff)
         const result = await sendWhatsAppWithRetry(log.phone, log.messageBody, log.id);
         return { success: result.success };
+      }),
+  }),
+
+  // ─── Invoice Registry (Admin) ─────────────────────────────────────────────
+  registry: router({
+    list: adminProcedure
+      .input(z.object({ limit: z.number().default(200), offset: z.number().default(0) }))
+      .query(({ input }) => getRegistry(input.limit, input.offset)),
+
+    add: adminProcedure
+      .input(z.object({
+        invoiceNumber: z.string().min(1),
+        customerPhone: z.string().min(1),
+        amount: z.number().positive(),
+        invoiceDate: z.string().optional(),
+        customerName: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await addToRegistry({
+          invoiceNumber: input.invoiceNumber,
+          customerPhone: input.customerPhone,
+          amount: input.amount,
+          invoiceDate: input.invoiceDate ? new Date(input.invoiceDate) : undefined,
+          customerName: input.customerName,
+          notes: input.notes,
+          createdBy: ctx.user.id,
+        });
+        return { success: true };
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        invoiceNumber: z.string().min(1).optional(),
+        customerPhone: z.string().min(1).optional(),
+        amount: z.string().optional(),
+        customerName: z.string().optional(),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await updateRegistry(id, data as any);
+        return { success: true };
+      }),
+
+    delete: adminProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ input }) => {
+        await deleteFromRegistry(input.id);
+        return { success: true };
+      }),
+
+    lookup: adminProcedure
+      .input(z.object({ invoiceNumber: z.string().min(1) }))
+      .query(async ({ input }) => lookupRegistry(input.invoiceNumber)),
+
+    // Manually trigger auto-approval for a specific invoice submission
+    autoApprove: adminProcedure
+      .input(z.object({ invoiceId: z.number() }))
+      .mutation(async ({ input }) => {
+        const result = await tryAutoApprove(input.invoiceId);
+        return result;
       }),
   }),
 

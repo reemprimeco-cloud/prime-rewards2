@@ -273,3 +273,24 @@ export const pendingCustomers = mysqlTable("pending_customers", {
 
 export type PendingCustomer = typeof pendingCustomers.$inferSelect;
 export type InsertPendingCustomer = typeof pendingCustomers.$inferInsert;
+
+// ─── Invoice Registry (Admin-managed source of truth) ─────────────────────────
+// Admins add real invoices here. The auto-approval engine matches submitted
+// invoices against this table using invoiceNumber + customerPhone.
+export const invoiceRegistry = mysqlTable("invoice_registry", {
+  id: int("id").autoincrement().primaryKey(),
+  invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull().unique(),
+  customerPhone: varchar("customerPhone", { length: 32 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  invoiceDate: timestamp("invoiceDate"),
+  customerName: varchar("customerName", { length: 255 }),
+  notes: text("notes"),
+  isUsed: boolean("isUsed").default(false).notNull(),
+  usedAt: timestamp("usedAt"),
+  usedByInvoiceId: int("usedByInvoiceId"),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type InvoiceRegistry = typeof invoiceRegistry.$inferSelect;
+export type InsertInvoiceRegistry = typeof invoiceRegistry.$inferInsert;

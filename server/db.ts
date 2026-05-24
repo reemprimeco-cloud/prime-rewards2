@@ -18,8 +18,10 @@ import {
   failedAttempts,
   suspiciousAccounts,
   pendingCustomers,
+  invoiceRegistry,
   type Customer,
   type InsertCustomer,
+  type InvoiceRegistry,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -877,6 +879,125 @@ export async function getCustomerByPhone(phone: string) {
   const cleaned = phone.replace(/\s|-/g, "");
   const result = await db.select().from(customers).where(eq(customers.phone, cleaned)).limit(1);
   return result[0] ?? null;
+}
+
+// ─── Invoice Registry (Admin-managed source of truth) ────────────────────────
+export async function addToRegistry(data: {
+  invoiceNumber: string;
+  customerPhone: string;
+  amount: number;
+  invoiceDate?: Date;
+  customerName?: string;
+  notes?: string;
+  createdBy?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  // Normalise phone: strip spaces/dashes, ensure E.164 with +965 prefix for Kuwait numbers
+  const cleaned = data.customerPhone.replace(/[\s\-()]/g, "");
+  const phone = cleaned.startsWith("+") ? cleaned : `+965${cleaned.replace(/^0+/, "")}`;
+  await db.insert(invoiceRegistry).values({
+    invoiceNumber: data.invoiceNumber.trim().toUpperCase(),
+    customerPhone: phone,
+    amount: String(data.amount),
+    invoiceDate: data.invoiceDate,
+    customerName: data.customerName,
+    notes: data.notes,
+    createdBy: data.createdBy,
+  });
+}
+
+export async function updateRegistry(id: number, data: Partial<InvoiceRegistry>) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(invoiceRegistry).set(data).where(eq(invoiceRegistry.id, id));
+}
+
+export async function deleteFromRegistry(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.delete(invoiceRegistry).where(eq(invoiceRegistry.id, id));
+}
+
+export async function getRegistry(limit = 200, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(invoiceRegistry)
+    .orderBy(desc(invoiceRegistry.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function lookupRegistry(invoiceNumber: string): Promise<InvoiceRegistry | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select()
+    .from(invoiceRegistry)
+    .where(eq(invoiceRegistry.invoiceNumber, invoiceNumber.trim().toUpperCase()))
+    .limit(1);
+  return result[0] ?? null;
+}
+
+// ─── Auto-Approval Engine ──────────────────────────────────────────────────────
+// Returns: { result: 'approved' | 'phone_mismatch' | 'not_in_registry' | 'already_used' }
+export async function tryAutoApprove(invoiceId: number): Promise<{
+  result: "approved" | "phone_mismatch" | "not_in_registry" | "already_used";
+  registryEntry?: InvoiceRegistry | null;
+  pointsEarned?: number;
+}> {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+
+  // Load the submitted invoice + customer
+  const invoiceRows = await db.select().from(invoices).where(eq(invoices.id, invoiceId)).limit(1);
+  const invoice = invoiceRows[0];
+  if (!invoice) throw new Error("Invoice not found");
+
+  const customer = await getCustomerById(invoice.customerId);
+  if (!customer) throw new Error("Customer not found");
+
+  // Look up the invoice in the registry
+  const entry = await lookupRegistry(invoice.invoiceNumber);
+  if (!entry) {
+    return { result: "not_in_registry" };
+  }
+
+  // Check if already used by another claim
+  if (entry.isUsed && entry.usedByInvoiceId !== invoiceId) {
+    return { result: "already_used", registryEntry: entry };
+  }
+
+  // Normalise customer phone for comparison
+  const rawPhone = customer.phone ?? "";
+  const normPhone = rawPhone.replace(/[\s\-()]/g, "");
+  const custPhone = normPhone.startsWith("+") ? normPhone : `+965${normPhone.replace(/^0+/, "")}`;
+  const regPhone = entry.customerPhone;
+
+  if (custPhone !== regPhone) {
+    // Phone mismatch — record failed attempt
+    await recordFailedAttempt({
+      customerId: invoice.customerId,
+      attemptType: "phone_mismatch",
+      invoiceNumber: invoice.invoiceNumber,
+      details: `Registry phone: ${regPhone}, customer phone: ${custPhone}`,
+    });
+    return { result: "phone_mismatch", registryEntry: entry };
+  }
+
+  // All checks passed — approve the invoice
+  const pointsResult = await reviewInvoice(invoiceId, "approved", 0, undefined);
+
+  // Mark the registry entry as used
+  await db.update(invoiceRegistry).set({
+    isUsed: true,
+    usedAt: new Date(),
+    usedByInvoiceId: invoiceId,
+  }).where(eq(invoiceRegistry.id, entry.id));
+
+  return { result: "approved", registryEntry: entry, pointsEarned: invoice.pointsEarned };
 }
 
 // ─── Reset Invoice Claim (Admin) ───────────────────────────────────────────────

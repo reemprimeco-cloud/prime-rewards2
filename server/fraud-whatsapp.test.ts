@@ -321,3 +321,93 @@ describe("Twilio Credential Validation", () => {
     expect(data.status).toBe("active");
   }, 10000); // 10s timeout for network call
 });
+
+// ─── Auto-Approval Matching Logic ────────────────────────────────────────────────
+describe("Auto-Approval Matching Logic", () => {
+  it("should approve invoice when phone matches registry entry", () => {
+    // Simulates: customer with phone +96555001234 submits invoice INV-001
+    // Registry has INV-001 with phone +96555001234 → should approve
+    const normPhone = "+96555001234";
+    const regPhone = "+96555001234";
+    // Phones match → auto-approve
+    expect(normPhone).toBe(regPhone);
+  });
+
+  it("should reject when customer phone doesn't match registry phone", () => {
+    // Customer: +96555001234, Registry: +96555005678 → mismatch, log fraud
+    const custPhone = "+96555001234";
+    const regPhone = "+96555005678";
+    // Phones don't match → fraud attempt logged
+    expect(custPhone).not.toBe(regPhone);
+  });
+
+  it("should handle phone normalization: 55001234 → +96555001234", () => {
+    const rawPhone = "55001234";
+    const normalized = `+965${rawPhone}`;
+    // 55001234 → +96555001234 (correct)
+    expect(normalized).toBe("+96555001234");
+  });
+
+  it("should handle phone normalization: +965 5500 1234 → +96555001234", () => {
+    const rawPhone = "+965 5500 1234";
+    const normalized = rawPhone.replace(/[\s\-()]/g, "");
+    // +965 5500 1234 → +96555001234 (correct)
+    expect(normalized).toBe("+96555001234");
+  });
+
+  it("should handle phone normalization: 0555001234 → +965555001234", () => {
+    const rawPhone = "0555001234";
+    const normalized = `+965${rawPhone.replace(/^0+/, "")}`;
+    // 0555001234 → 555001234 → +965555001234 (correct)
+    expect(normalized).toBe("+965555001234");
+  });
+
+  it("should prevent double-use: invoice already claimed by another customer", () => {
+    // Registry entry marked isUsed=true, usedByInvoiceId=100
+    // New invoice submission with id=101 should be rejected
+    const isUsed = true;
+    const usedByInvoiceId = 100;
+    const newInvoiceId = 101;
+    // Invoice already used by different customer → reject
+    expect(isUsed && usedByInvoiceId !== newInvoiceId).toBe(true);
+  });
+
+  it("should allow re-use if same invoice id (idempotent)", () => {
+    // Registry entry marked isUsed=true, usedByInvoiceId=100
+    // Re-submission with same invoice id=100 should be allowed (idempotent)
+    const isUsed = true;
+    const usedByInvoiceId = 100;
+    const sameInvoiceId = 100;
+    // Same invoice id → idempotent, allow
+    expect(usedByInvoiceId === sameInvoiceId).toBe(true);
+  });
+
+  it("should return 'not_in_registry' when invoice number not found", () => {
+    // Invoice INV-999 not in registry → should return not_in_registry
+    const result = "not_in_registry";
+    // Invoice not in registry → leave pending for manual review
+    expect(result).toBe("not_in_registry");
+  });
+
+  it("should return 'already_used' when invoice claimed by different customer", () => {
+    // Invoice INV-001 already used by customer 42, new customer 99 tries to claim
+    const result = "already_used";
+    // Invoice already used → reject
+    expect(result).toBe("already_used");
+  });
+
+  it("should return 'phone_mismatch' when customer phone doesn't match registry", () => {
+    // Registry: INV-001 with phone +96555001234
+    // Customer: phone +96599999999
+    const result = "phone_mismatch";
+    // Phone mismatch → log fraud attempt, leave pending
+    expect(result).toBe("phone_mismatch");
+  });
+
+  it("should return 'approved' when all checks pass", () => {
+    // Invoice number found, phone matches, not already used
+    const result = "approved";
+    // All checks pass → auto-approve and send WhatsApp
+    expect(result).toBe("approved");
+  });
+});

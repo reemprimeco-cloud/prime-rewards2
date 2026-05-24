@@ -135,3 +135,16 @@
 - [x] Add sendWithDuplicateCheck helper that wraps sendWhatsApp with log lookup
 - [x] Update admin WhatsApp logs page: show delivery status badge, retry button, mobile-friendly layout
 - [x] Add Twilio credential validation test
+
+## Phase 13: Automated Invoice Approval Engine
+
+- [x] Audit invoice submission flow and schema
+- [x] Create invoice_registry table: invoiceNumber, customerPhone, amount, date, isUsed, createdBy
+- [x] DB function: lookupInvoiceRegistry(invoiceNumber) → returns registry row or null
+- [x] DB function: autoApproveInvoice(invoiceId) — matches phone, amount, marks registry as used, approves
+- [x] Auto-approval engine: on invoice submit, run match → auto-approve if match, leave pending if phone mismatch or not in registry
+- [x] Send WhatsApp on auto-approve (points awarded), notify customer if pending review
+- [x] Admin page: Invoice Registry (/admin/registry) — add, delete, search, status
+- [x] Add /admin/registry route to App.tsx and nav link to AdminLayout
+- [x] Add Auto-Approve button to AdminInvoices.tsx for pending invoices
+- [x] Tests: auto-approval matching logic

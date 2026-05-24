@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
-  BarChart2, Users, FileText, Gift, Megaphone, Shield, Home, LogOut, Menu, Settings, MessageCircle, AlertTriangle, TrendingUp
+  BarChart2, Users, FileText, Gift, Megaphone, Shield, Home, LogOut, Menu, Settings, MessageCircle, AlertTriangle, TrendingUp, ClipboardList
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
@@ -23,6 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/whatsapp", label: language === "ar" ? "سجلات واتساب" : "WhatsApp Logs", icon: MessageCircle },
     { href: "/admin/suspicious", label: language === "ar" ? "حسابات مشبوهة" : "Suspicious", icon: AlertTriangle },
     { href: "/admin/analytics", label: language === "ar" ? "التحليلات" : "Analytics", icon: TrendingUp },
+    { href: "/admin/registry", label: language === "ar" ? "سجل الفواتير" : "Invoice Registry", icon: ClipboardList },
     { href: "/admin/settings", label: t.admin_nav_settings, icon: Settings },
   ];
 

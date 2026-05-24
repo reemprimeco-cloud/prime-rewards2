@@ -3,7 +3,7 @@ import AdminLayout from "@/components/AdminLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useState } from "react";
 import { toast } from "sonner";
-import { FileText, CheckCircle, XCircle, AlertTriangle, Clock, Loader2, Search, RotateCcw } from "lucide-react";
+import { FileText, CheckCircle, XCircle, AlertTriangle, Clock, Loader2, Search, RotateCcw, Zap } from "lucide-react";
 import { format } from "date-fns";
 
 const STATUS_CONFIG_EN = {
@@ -40,6 +40,20 @@ export default function AdminInvoices() {
   const resetClaimMutation = trpc.invoices.resetClaim.useMutation({
     onSuccess: () => {
       toast.success(language === "ar" ? "تم إعادة تعيين المطالبة بالفاتورة" : "Invoice claim reset to pending");
+      refetch();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const autoApproveMutation = trpc.registry.autoApprove.useMutation({
+    onSuccess: (data) => {
+      const messages: Record<string, string> = {
+        approved: language === "ar" ? "تمت الموافقة التلقائية على الفاتورة!" : "Invoice auto-approved!",
+        phone_mismatch: language === "ar" ? "عدم تطابق الهاتف — تم تسجيل محاولة احتيالية" : "Phone mismatch — fraud attempt logged",
+        not_in_registry: language === "ar" ? "الفاتورة غير موجودة في السجل" : "Invoice not in registry",
+        already_used: language === "ar" ? "تم استخدام هذه الفاتورة بالفعل" : "Invoice already used",
+      };
+      toast.success(messages[data.result] ?? data.result);
       refetch();
     },
     onError: (err) => toast.error(err.message),
@@ -144,6 +158,15 @@ export default function AdminInvoices() {
                           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#5B9BD5]"
                         />
                         <div className="flex gap-2">
+                          <button
+                            onClick={() => autoApproveMutation.mutate({ invoiceId: invoice.id })}
+                            disabled={autoApproveMutation.isPending}
+                            className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 text-white py-2 rounded-lg text-xs font-semibold hover:bg-blue-700"
+                            title={language === "ar" ? "محاولة الموافقة التلقائية من السجل" : "Try auto-approve from registry"}
+                          >
+                            <Zap size={14} />
+                            {language === "ar" ? "تلقائي" : "Auto"}
+                          </button>
                           <button
                             onClick={() => reviewMutation.mutate({ invoiceId: invoice.id, status: "approved" })}
                             disabled={reviewMutation.isPending}
