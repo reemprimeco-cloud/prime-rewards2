@@ -28,7 +28,7 @@ describe("QuickBooks Production credentials", () => {
 
   it("should be able to generate a valid OAuth authorization URL for production", () => {
     const clientId = process.env.QUICKBOOKS_CLIENT_ID ?? "";
-    const redirectUri = process.env.QUICKBOOKS_REDIRECT_URI ?? "https://primerewds-45ycshmd.manus.space/api/qb/callback";
+    const redirectUri = process.env.QUICKBOOKS_REDIRECT_URI ?? "https://primerewds.com/api/qb/callback";
     const environment = process.env.QUICKBOOKS_ENVIRONMENT ?? "production";
 
     // Build the OAuth URL the same way qbRoutes.ts does

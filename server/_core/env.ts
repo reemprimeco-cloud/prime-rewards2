@@ -16,4 +16,7 @@ export const ENV = {
   twilioAccountSid: process.env.TWILIO_ACCOUNT_SID ?? "",
   twilioAuthToken: process.env.TWILIO_AUTH_TOKEN ?? "",
   twilioWhatsappFrom: process.env.TWILIO_WHATSAPP_FROM ?? "",
+  twilioWhatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER ?? "",
+  twilioWhatsappTemplateSid: process.env.TWILIO_WHATSAPP_TEMPLATE_SID ?? "",
+  appBaseUrl: process.env.APP_BASE_URL ?? "https://primerewds.com",
 };

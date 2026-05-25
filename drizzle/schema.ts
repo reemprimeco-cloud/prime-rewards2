@@ -294,3 +294,25 @@ export const invoiceRegistry = mysqlTable("invoice_registry", {
 });
 export type InvoiceRegistry = typeof invoiceRegistry.$inferSelect;
 export type InsertInvoiceRegistry = typeof invoiceRegistry.$inferInsert;
+
+
+// ─── WhatsApp Messages (Twilio delivery tracking) ────────────────────────────
+export const whatsappMessages = mysqlTable("whatsapp_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  invoiceId: int("invoiceId").notNull(),
+  customerId: int("customerId").notNull(),
+  customerPhone: varchar("customerPhone", { length: 32 }).notNull(),
+  messageType: varchar("messageType", { length: 64 }).notNull(), // "invoice_approved"
+  templateSid: varchar("templateSid", { length: 255 }),
+  twilio_sid: varchar("twilio_sid", { length: 255 }), // Twilio message SID
+  status: mysqlEnum("status", ["pending", "sent", "delivered", "failed", "retrying"]).default("pending").notNull(),
+  retryCount: int("retryCount").default(0).notNull(),
+  maxRetries: int("maxRetries").default(3).notNull(),
+  errorMessage: text("errorMessage"),
+  sentAt: timestamp("sentAt"),
+  deliveredAt: timestamp("deliveredAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
+export type InsertWhatsappMessage = typeof whatsappMessages.$inferInsert;

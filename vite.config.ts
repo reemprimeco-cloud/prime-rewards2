@@ -176,6 +176,8 @@ export default defineConfig({
       ".manus-asia.computer",
       ".manuscomputer.ai",
       ".manusvm.computer",
+      "primerewds.com",
+      "www.primerewds.com",
       "localhost",
       "127.0.0.1",
     ],

@@ -36,6 +36,13 @@
       "when": 1779547599595,
       "tag": "0004_first_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1779633467307,
+      "tag": "0005_fluffy_jamie_braddock",
+      "breakpoints": true
     }
   ]
 }
