@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { registerQBRoutes } from "../qbRoutes";
 import { registerStorageProxy } from "./storageProxy";
 import { registerTwilioWebhookRoutes } from "../twilioWebhook";
+import { registerQbWebhookReceiver } from "../qbWebhookReceiver";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -40,6 +41,7 @@ async function startServer() {
   registerOAuthRoutes(app);
   registerQBRoutes(app);
   registerTwilioWebhookRoutes(app);
+  registerQbWebhookReceiver(app);
   // tRPC API
   app.use(
     "/api/trpc",
