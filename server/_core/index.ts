@@ -6,6 +6,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerQBRoutes } from "../qbRoutes";
 import { registerStorageProxy } from "./storageProxy";
+import { registerTwilioWebhookRoutes } from "../twilioWebhook";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -38,6 +39,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerQBRoutes(app);
+  registerTwilioWebhookRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

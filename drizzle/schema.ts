@@ -2,6 +2,7 @@ import {
   boolean,
   decimal,
   int,
+  json,
   mysqlEnum,
   mysqlTable,
   text,
@@ -316,3 +317,55 @@ export const whatsappMessages = mysqlTable("whatsapp_messages", {
 });
 export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
 export type InsertWhatsappMessage = typeof whatsappMessages.$inferInsert;
+
+// ─── QB Payment Syncs (Track processed QB payments) ──────────────────────────
+export const qbPaymentSyncs = mysqlTable("qb_payment_syncs", {
+  id: int("id").autoincrement().primaryKey(),
+  qbInvoiceId: varchar("qbInvoiceId", { length: 255 }).notNull(),
+  invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull(),
+  customerPhone: varchar("customerPhone", { length: 32 }).notNull(),
+  customerName: varchar("customerName", { length: 255 }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  pointsCalculated: int("pointsCalculated").notNull(),
+  status: mysqlEnum("status", ["pending", "success", "failed", "duplicate"]).default("pending").notNull(),
+  customerId: int("customerId"), // null if customer not yet registered
+  errorMessage: text("errorMessage"),
+  webhookEventId: varchar("webhookEventId", { length: 255 }),
+  processedAt: timestamp("processedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type QbPaymentSync = typeof qbPaymentSyncs.$inferSelect;
+export type InsertQbPaymentSync = typeof qbPaymentSyncs.$inferInsert;
+
+// ─── Pending Rewards (For customers not yet registered) ─────────────────────
+export const pendingRewards = mysqlTable("pending_rewards", {
+  id: int("id").autoincrement().primaryKey(),
+  phone: varchar("phone", { length: 32 }).notNull(),
+  customerName: varchar("customerName", { length: 255 }),
+  invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  pointsEarned: int("pointsEarned").notNull(),
+  message: text("message"),
+  status: mysqlEnum("status", ["pending", "claimed", "expired"]).default("pending").notNull(),
+  customerId: int("customerId"), // populated when customer signs up
+  claimedAt: timestamp("claimedAt"),
+  expiresAt: timestamp("expiresAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type PendingReward = typeof pendingRewards.$inferSelect;
+export type InsertPendingReward = typeof pendingRewards.$inferInsert;
+
+// ─── QB Webhook Events (Log all QB events) ────────────────────────────────
+export const qbWebhookEvents = mysqlTable("qb_webhook_events", {
+  id: int("id").autoincrement().primaryKey(),
+  eventId: varchar("eventId", { length: 255 }).notNull().unique(),
+  eventType: varchar("eventType", { length: 64 }).notNull(), // "Invoice.Change", "Payment.Create", etc.
+  realmId: varchar("realmId", { length: 255 }).notNull(),
+  payload: json("payload"),
+  processed: boolean("processed").default(false).notNull(),
+  processedAt: timestamp("processedAt"),
+  error: text("error"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type QbWebhookEvent = typeof qbWebhookEvents.$inferSelect;
+export type InsertQbWebhookEvent = typeof qbWebhookEvents.$inferInsert;

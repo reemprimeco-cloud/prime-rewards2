@@ -148,3 +148,19 @@
 - [x] Add /admin/registry route to App.tsx and nav link to AdminLayout
 - [x] Add Auto-Approve button to AdminInvoices.tsx for pending invoices
 - [x] Tests: auto-approval matching logic
+
+## Phase 14: QuickBooks Rewards Notification Flow
+
+- [ ] Create qb_payment_syncs table (invoiceId, customerId, amount, pointsCalculated, status, processedAt, webhookEventId)
+- [ ] Create pending_rewards table (phone, customerName, invoiceNumber, amount, pointsEarned, message, status, createdAt, claimedByUserId)
+- [ ] Create qb_webhook_events table (eventId, eventType, payload, processed, processedAt, error)
+- [ ] Run DB migrations for new tables
+- [ ] Build QB webhook receiver: POST /api/qb/webhook (verify signature, parse payment events)
+- [ ] Build rewards processor: detect paid invoices, extract customer data, calculate points, check duplicates
+- [ ] Create pending rewards on QB payment: save to pending_rewards table if customer not registered
+- [ ] Send WhatsApp to new customers: signup invitation with points earned
+- [ ] Send WhatsApp to existing customers: points added confirmation with balance
+- [ ] Wire pending rewards into signup flow: auto-claim when customer registers with matching phone
+- [ ] Add admin QB Sync Logs page: show successful syncs, failed syncs, pending rewards
+- [ ] Add retry system for failed WhatsApp sends
+- [ ] Tests: QB event parsing, point calculation, duplicate prevention, pending rewards claim
