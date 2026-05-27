@@ -129,7 +129,7 @@ export async function processQbPaymentEvent(eventData: {
         // Send WhatsApp template notification
         const whatsappResult = await sendWhatsAppTemplate(
           normalizedPhone,
-          "reward_notification",
+          "reward_test",
           {
             customer_name: eventData.customerName || "Valued Customer",
             points_earned: String(pointsCalculated),
@@ -138,7 +138,7 @@ export async function processQbPaymentEvent(eventData: {
         );
         
         // Log the WhatsApp send
-        const templateMessage = `Template: reward_notification | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
+        const templateMessage = `Template: reward_test | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
         if (whatsappResult.success) {
           await logWhatsApp({
             customerId,
@@ -193,7 +193,7 @@ export async function processQbPaymentEvent(eventData: {
         // Send signup invitation WhatsApp template
         const signupResult = await sendWhatsAppTemplate(
           normalizedPhone,
-          "reward_notification",
+          "reward_test",
           {
             customer_name: eventData.customerName || "Valued Customer",
             points_earned: String(pointsCalculated),
@@ -202,7 +202,7 @@ export async function processQbPaymentEvent(eventData: {
         );
         
         // Log the signup invitation WhatsApp
-        const templateMessage = `Template: reward_notification (signup) | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
+        const templateMessage = `Template: reward_test (signup) | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
         if (signupResult.success) {
           await logWhatsApp({
             phone: normalizedPhone,

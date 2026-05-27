@@ -64,7 +64,7 @@ describe("QB Template-Based Automation", () => {
   });
 
   describe("Template-Based QB Payment Processing", () => {
-    it("should use template for existing customer", async () => {
+    it("should use reward_test template for existing customer", async () => {
       const uniqueId = `template-existing-${Date.now()}`;
       const result = await processQbPaymentEvent({
         qbInvoiceId: String(Math.floor(Math.random() * 1000000)),
@@ -79,7 +79,7 @@ describe("QB Template-Based Automation", () => {
       expect(result.customerId || result.pendingRewardId).toBeDefined();
     }, { timeout: 15000 });
 
-    it("should use template for new customer", async () => {
+    it("should use reward_test template for new customer", async () => {
       const uniqueId = `template-new-${Date.now()}`;
       const result = await processQbPaymentEvent({
         qbInvoiceId: String(Math.floor(Math.random() * 1000000)),
@@ -92,7 +92,7 @@ describe("QB Template-Based Automation", () => {
       expect(result.status).toBe("success");
     }, { timeout: 15000 });
 
-    it("should normalize phone with spaces", async () => {
+    it("should use reward_test template with normalized phone (spaces)", async () => {
       const uniqueId = `template-spaces-${Date.now()}`;
       const result = await processQbPaymentEvent({
         qbInvoiceId: String(Math.floor(Math.random() * 1000000)),
@@ -105,7 +105,7 @@ describe("QB Template-Based Automation", () => {
       expect(result.status).toBe("success");
     }, { timeout: 15000 });
 
-    it("should normalize phone with dashes", async () => {
+    it("should use reward_test template with normalized phone (dashes)", async () => {
       const uniqueId = `template-dashes-${Date.now()}`;
       const result = await processQbPaymentEvent({
         qbInvoiceId: String(Math.floor(Math.random() * 1000000)),
@@ -118,7 +118,7 @@ describe("QB Template-Based Automation", () => {
       expect(result.status).toBe("success");
     }, { timeout: 15000 });
 
-    it("should prevent duplicate sends", async () => {
+    it("should prevent duplicate reward_test sends", async () => {
       const uniqueId = `template-dup-${Date.now()}`;
       const invoiceId = String(Math.floor(Math.random() * 1000000));
       const eventData = {
@@ -138,7 +138,7 @@ describe("QB Template-Based Automation", () => {
       expect(result2.status).toBe("duplicate");
     }, { timeout: 15000 });
 
-    it("should calculate points correctly with template", async () => {
+    it("should calculate points correctly with reward_test template", async () => {
       const uniqueId = `template-points-${Date.now()}`;
       const result = await processQbPaymentEvent({
         qbInvoiceId: String(Math.floor(Math.random() * 1000000)),
@@ -152,7 +152,7 @@ describe("QB Template-Based Automation", () => {
       expect([result.pointsAdded, result.pointsPending]).toContain(10);
     }, { timeout: 15000 });
 
-    it("should handle 00965 format with template", async () => {
+    it("should handle 00965 format with reward_test template", async () => {
       const uniqueId = `template-00965-${Date.now()}`;
       const result = await processQbPaymentEvent({
         qbInvoiceId: String(Math.floor(Math.random() * 1000000)),
@@ -167,7 +167,7 @@ describe("QB Template-Based Automation", () => {
   });
 
   describe("Automatic Delivery Tracking", () => {
-    it("should log template send with message SID", async () => {
+    it("should log reward_test template send with message SID", async () => {
       const uniqueId = `template-tracking-${Date.now()}`;
       const result = await processQbPaymentEvent({
         qbInvoiceId: String(Math.floor(Math.random() * 1000000)),

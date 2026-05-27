@@ -176,3 +176,13 @@
 - [x] Apply database migration for delivery tracking
 - [x] Log full Twilio API responses in console for debugging
 - [x] Tests: 16 tests passing (phone normalization, template sending, delivery tracking)
+
+## Phase 16: Production Twilio Messaging Service Deployment
+
+- [x] Add TWILIO_MESSAGING_SERVICE_SID to environment secrets
+- [x] Update sendWhatsAppTemplate() to use Messaging Service SID instead of sandbox sender
+- [x] Update QB rewards engine to use approved reward_test template
+- [x] Update all test descriptions to reference reward_test template
+- [x] Verify all 16 tests passing with production configuration
+- [x] Dev server running and healthy
+- [ ] Deploy to production and verify QB payment → WhatsApp delivery

@@ -65,10 +65,10 @@ export function normalisePhone(raw: string): string {
 }
 
 /**
- * Send a WhatsApp template message via the official Twilio REST API.
- * Uses TWILIO_WHATSAPP_FROM (whatsapp:+15559682683) as the sender.
+ * Send a WhatsApp template message via the official Twilio Messaging Service.
+ * Uses TWILIO_MESSAGING_SERVICE_SID for production delivery.
  * 
- * Template: reward_notification
+ * Template: reward_test (approved template for QB payment notifications)
  * Params: {{1}} = customer name, {{2}} = points earned, {{3}} = invoice number
  */
 export async function sendWhatsAppTemplate(
@@ -78,9 +78,9 @@ export async function sendWhatsAppTemplate(
 ): Promise<WhatsAppResult> {
   const sid = ENV.twilioAccountSid;
   const token = ENV.twilioAuthToken;
-  const from = ENV.twilioWhatsappFrom;
+  const messagingServiceSid = ENV.twilioMessagingServiceSid;
 
-  if (!sid || !token || !from) {
+  if (!sid || !token || !messagingServiceSid) {
     console.warn("[WhatsApp] Twilio credentials not configured — skipping");
     return { success: false, error: "Twilio not configured" };
   }
@@ -91,11 +91,11 @@ export async function sendWhatsAppTemplate(
   try {
     const credentials = Buffer.from(`${sid}:${token}`).toString("base64");
     
-    // Build template body with parameters
+    // Build template body with Messaging Service SID
     const bodyParams = new URLSearchParams({
-      From: from,
+      MessagingServiceSid: messagingServiceSid,
       To: to,
-      ContentSid: templateName, // Twilio template SID or name
+      ContentSid: templateName, // Twilio template SID or name (reward_test)
     });
     
     // Add template parameters
@@ -123,7 +123,7 @@ export async function sendWhatsAppTemplate(
       return { success: false, error: data.error_message ?? `HTTP ${response.status}` };
     }
 
-    console.log(`[WhatsApp] Template '${templateName}' sent to ${normalised} — SID: ${data.sid}`);
+    console.log(`[WhatsApp] Template '${templateName}' sent to ${normalised} via Messaging Service — SID: ${data.sid}`);
     console.log("[WhatsApp] Twilio Response:", JSON.stringify(data));
     return { success: true, messageSid: data.sid };
   } catch (err: any) {
