@@ -133,56 +133,21 @@ export async function sendWhatsAppTemplate(
 }
 
 /**
- * Send a WhatsApp message via the official Twilio REST API.
- * Uses TWILIO_WHATSAPP_FROM (whatsapp:+15559682683) as the sender.
+ * Send a WhatsApp message via the official Twilio Messaging Service using template format.
+ * DEPRECATED: Use sendWhatsAppTemplate() instead.
+ * This function now delegates to sendWhatsAppTemplate() to comply with Twilio's template-only requirement.
  */
 export async function sendWhatsApp(
   toPhone: string,
   message: string
 ): Promise<WhatsAppResult> {
-  const sid   = ENV.twilioAccountSid;
-  const token = ENV.twilioAuthToken;
-  const from  = ENV.twilioWhatsappFrom;   // whatsapp:+15559682683
-
-  if (!sid || !token || !from) {
-    console.warn("[WhatsApp] Twilio credentials not configured — skipping");
-    return { success: false, error: "Twilio not configured" };
-  }
-
-  const normalised = normalisePhone(toPhone);
-  const to = normalised.startsWith("whatsapp:") ? normalised : `whatsapp:${normalised}`;
-
-  try {
-    const credentials = Buffer.from(`${sid}:${token}`).toString("base64");
-    const body = new URLSearchParams({ From: from, To: to, Body: message });
-
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${credentials}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
-      }
-    );
-
-    const data = await response.json() as { sid?: string; error_message?: string; status?: string };
-
-    if (!response.ok) {
-      console.error("[WhatsApp] Send failed:", data.error_message);
-      console.error("[WhatsApp] Full Twilio Response:", JSON.stringify(data));
-      return { success: false, error: data.error_message ?? `HTTP ${response.status}` };
-    }
-
-    console.log(`[WhatsApp] Sent to ${normalised} — SID: ${data.sid}`);
-    console.log("[WhatsApp] Twilio Response:", JSON.stringify(data));
-    return { success: true, messageSid: data.sid };
-  } catch (err: any) {
-    console.error("[WhatsApp] Network error:", err?.message);
-    return { success: false, error: err?.message ?? "Network error" };
-  }
+  console.warn("[WhatsApp] sendWhatsApp() is deprecated. Use sendWhatsAppTemplate() instead.");
+  console.warn("[WhatsApp] Freeform messages are no longer supported. Using reward_test template.");
+  
+  // Delegate to template-based sending with reward_test template
+  return sendWhatsAppTemplate(toPhone, "reward_test", {
+    message: message,
+  });
 }
 
 // ─── Retry Helper ─────────────────────────────────────────────────────────────
@@ -213,7 +178,8 @@ export async function sendWhatsAppWithRetry(
       }
     }
 
-    lastResult = await sendWhatsApp(toPhone, message);
+    // Use template-based sending instead of freeform messages
+    lastResult = await sendWhatsAppTemplate(toPhone, "reward_test", { message });
 
     if (lastResult.success) {
       if (logId) {

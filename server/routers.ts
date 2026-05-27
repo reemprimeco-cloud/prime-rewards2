@@ -74,6 +74,7 @@ import { nanoid } from "nanoid";
 import { lookupQBInvoice, lookupQBInvoiceByPhone, isQBConnected } from "./quickbooks";
 import {
   sendWhatsApp,
+  sendWhatsAppTemplate,
   sendWhatsAppIfNotDuplicate,
   sendWhatsAppWithRetry,
   welcomeMessage,
@@ -122,7 +123,9 @@ export const appRouter = router({
           await claimPendingRewards(customer.id, customer.phone).catch((err) => {
             console.error("[Customer] Failed to claim pending rewards:", err);
           });
-          sendWhatsApp(customer.phone, welcomeMessage(customer.fullName, customer.totalPoints)).catch(() => {});
+          sendWhatsAppTemplate(customer.phone, "reward_test", {
+            message: welcomeMessage(customer.fullName, customer.totalPoints),
+          }).catch(() => {});
         }
       }
       return customer;
@@ -177,7 +180,9 @@ export const appRouter = router({
             messageBody: msg,
             status: "pending",
           });
-          const waResult = await sendWhatsApp(input.phone, msg).catch(() => ({ success: false, error: "send failed" }));
+          const waResult = await sendWhatsAppTemplate(input.phone, "reward_test", {
+            message: msg,
+          }).catch(() => ({ success: false, error: "send failed" }));
           if (logId) {
             await updateWhatsAppLog(logId, {
               status: waResult.success ? "sent" : "failed",
@@ -522,15 +527,18 @@ export const appRouter = router({
           if (customer.phone && result) {
             const r = result as any;
             const updatedCustomer = await getCustomerByUserId(ctx.user.id);
-            sendWhatsApp(
+            sendWhatsAppTemplate(
               customer.phone,
-              rewardRedeemedMessage(
-                customer.fullName,
-                r.rewardName ?? "Reward",
-                r.requiredPoints ?? 0,
-                updatedCustomer?.totalPoints ?? 0,
-                r.couponCode
-              )
+              "reward_test",
+              {
+                message: rewardRedeemedMessage(
+                  customer.fullName,
+                  r.rewardName ?? "Reward",
+                  r.requiredPoints ?? 0,
+                  updatedCustomer?.totalPoints ?? 0,
+                  r.couponCode
+                ),
+              }
             ).catch(() => {});
           }
           return result;
@@ -764,21 +772,24 @@ export const appRouter = router({
             const customer = await getCustomerById(input.customerId);
             if (customer?.phone) {
               const updatedCustomer = await getCustomerById(input.customerId);
-              sendWhatsApp(
+              sendWhatsAppTemplate(
                 customer.phone,
-                [
-                  `💰 *تم إضافة النقاط! / Points Added!*`,
-                  ``,
-                  `مرحباً ${customer.fullName},`,
-                  `Hello ${customer.fullName},`,
-                  ``,
-                  `🎉 تمت إضافة *${input.points} نقطة* إلى حسابك.`,
-                  `🎉 *${input.points} points* have been added to your account.`,
-                  ``,
-                  `السبب / Reason: ${input.reason}`,
-                  ``,
-                  `💰 إجمالي نقاطك / Total Points: *${updatedCustomer?.totalPoints ?? 0}*`,
-                ].join("\n")
+                "reward_test",
+                {
+                  message: [
+                    `💰 *تم إضافة النقاط! / Points Added!*`,
+                    ``,
+                    `مرحباً ${customer.fullName},`,
+                    `Hello ${customer.fullName},`,
+                    ``,
+                    `🎉 تمت إضافة *${input.points} نقطة* إلى حسابك.`,
+                    `🎉 *${input.points} points* have been added to your account.`,
+                    ``,
+                    `السبب / Reason: ${input.reason}`,
+                    ``,
+                    `💰 إجمالي نقاطك / Total Points: *${updatedCustomer?.totalPoints ?? 0}*`,
+                  ].join("\n"),
+                }
               ).catch(() => {});
             }
           } catch {}

@@ -302,7 +302,10 @@ export async function processPendingWhatsAppQueue(): Promise<void> {
     for (const log of pending) {
       try {
         console.log(`[QB Rewards Queue] Retrying WhatsApp ${log.id} to ${log.phone}`);
-        const result = await sendWhatsApp(log.phone, log.messageBody);
+        // Use template-based sending instead of freeform messages
+        const result = await sendWhatsAppTemplate(log.phone, "reward_test", {
+          message: log.messageBody,
+        });
 
         if (result.success) {
           await db
