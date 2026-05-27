@@ -1,5 +1,5 @@
-import { getDb } from "./db";
-import { customers, qbPaymentSyncs, pendingRewards } from "../drizzle/schema";
+import { getDb, logWhatsApp } from "./db";
+import { customers, qbPaymentSyncs, pendingRewards, whatsappLogs } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { sendWhatsApp } from "./whatsapp";
 
@@ -126,10 +126,33 @@ export async function processQbPaymentEvent(eventData: {
           await db.update(customers).set({ totalPoints: newTotal }).where(eq(customers.id, customerId));
         }
 
-        // Send WhatsApp notification
+        // Send WhatsApp notification with logging
         const message = `Prime Rewards 💙\n\n${pointsCalculated} points were added to your account from invoice #${eventData.invoiceNumber}\n\nView your rewards:\nhttps://primerewds.com`;
         
-        await sendWhatsApp(normalizedPhone, message);
+        const whatsappResult = await sendWhatsApp(normalizedPhone, message);
+        
+        // Log the WhatsApp send
+        if (whatsappResult.success) {
+          await logWhatsApp({
+            customerId,
+            phone: normalizedPhone,
+            messageBody: message,
+            messageType: "points_awarded",
+            status: "sent",
+            messageSid: whatsappResult.messageSid,
+          });
+          console.log(`[QB Rewards] WhatsApp sent to ${normalizedPhone} - SID: ${whatsappResult.messageSid}`);
+        } else {
+          await logWhatsApp({
+            customerId,
+            phone: normalizedPhone,
+            messageBody: message,
+            messageType: "points_awarded",
+            status: "failed",
+            errorMessage: whatsappResult.error,
+          });
+          console.error(`[QB Rewards] WhatsApp send failed: ${whatsappResult.error}`);
+        }
 
         // Mark sync as success
         await db
@@ -157,21 +180,41 @@ export async function processQbPaymentEvent(eventData: {
         // Create pending reward
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 90); // 90 days expiry
+        
+        // Send signup invitation WhatsApp
+        const signupMessage = `Prime Rewards 💙\n\nYou earned ${pointsCalculated} points from your recent order.\n\nCreate your free account to view and redeem your rewards:\nhttps://primerewds.com`;
+        const signupResult = await sendWhatsApp(normalizedPhone, signupMessage);
+        
+        // Log the signup invitation WhatsApp
+        if (signupResult.success) {
+          await logWhatsApp({
+            phone: normalizedPhone,
+            messageBody: signupMessage,
+            messageType: "points_awarded",
+            status: "sent",
+            messageSid: signupResult.messageSid,
+          });
+          console.log(`[QB Rewards] Signup invitation sent to ${normalizedPhone} - SID: ${signupResult.messageSid}`);
+        } else {
+          await logWhatsApp({
+            phone: normalizedPhone,
+            messageBody: signupMessage,
+            messageType: "points_awarded",
+            status: "failed",
+            errorMessage: signupResult.error,
+          });
+          console.error(`[QB Rewards] Signup invitation send failed: ${signupResult.error}`);
+        }
 
         const pendingResult = await db.insert(pendingRewards).values({
           phone: normalizedPhone,
-          customerName: eventData.customerName,
+          pointsEarned: pointsCalculated,
           invoiceNumber: eventData.invoiceNumber,
           amount: eventData.amount.toString(),
-          pointsEarned: pointsCalculated,
-          status: "pending",
           expiresAt,
+          status: "pending",
+          message: signupMessage,
         });
-
-        // Send signup invitation WhatsApp
-        const message = `Prime Rewards 💙\n\nYou earned ${pointsCalculated} points from your recent order.\n\nCreate your free account to view and redeem your rewards:\nhttps://primerewds.com`;
-
-        await sendWhatsApp(normalizedPhone, message);
 
         // Mark sync as success
         await db
@@ -179,7 +222,7 @@ export async function processQbPaymentEvent(eventData: {
           .set({ status: "success", processedAt: new Date() })
           .where(eq(qbPaymentSyncs.id, syncId));
 
-        console.log(`[QB Rewards] Pending reward created: ${pointsCalculated} pts for ${normalizedPhone}`);
+        console.log(`[QB Rewards] Pending reward created for ${normalizedPhone}: ${pointsCalculated} pts, WhatsApp sent: ${signupResult.success}`);
         return {
           status: "success",
           pendingRewardId: (pendingResult as any).insertId || 1,
@@ -187,6 +230,21 @@ export async function processQbPaymentEvent(eventData: {
         };
       } catch (error) {
         console.error(`[QB Rewards] Error creating pending reward:`, error);
+        
+        // Log the failed WhatsApp send
+        const signupMsg = `Prime Rewards 💙\n\nYou earned ${pointsCalculated} points from your recent order.\n\nCreate your free account to view and redeem your rewards:\nhttps://primerewds.com`;
+        try {
+          await logWhatsApp({
+            phone: normalizedPhone,
+            messageBody: signupMsg,
+            messageType: "points_awarded",
+            status: "failed",
+            errorMessage: String(error),
+          });
+        } catch (logErr) {
+          console.error(`[QB Rewards] Failed to log WhatsApp error:`, logErr);
+        }
+        
         await db
           .update(qbPaymentSyncs)
           .set({
@@ -199,21 +257,84 @@ export async function processQbPaymentEvent(eventData: {
       }
     }
   } catch (error) {
-    console.error(`[QB Rewards] Unexpected error:`, error);
+    console.error("[QB Rewards] Unhandled error:", error);
     return { status: "failed", error: String(error) };
+  }
+}
+
+/**
+ * Process pending WhatsApp messages that failed or are stuck
+ */
+export async function processPendingWhatsAppQueue(): Promise<void> {
+  try {
+    const db = await getDb();
+    if (!db) {
+      console.error("[QB Rewards Queue] Database connection failed");
+      return;
+    }
+
+    // Find all pending messages
+    const pending = await db
+      .select()
+      .from(whatsappLogs)
+      .where(eq(whatsappLogs.status, "pending"))
+      .limit(10);
+
+    for (const log of pending) {
+      try {
+        console.log(`[QB Rewards Queue] Retrying WhatsApp ${log.id} to ${log.phone}`);
+        const result = await sendWhatsApp(log.phone, log.messageBody);
+
+        if (result.success) {
+          await db
+            .update(whatsappLogs)
+            .set({
+              status: "sent",
+              messageSid: result.messageSid,
+              retryCount: (log.retryCount || 0) + 1,
+            })
+            .where(eq(whatsappLogs.id, log.id));
+          console.log(`[QB Rewards Queue] WhatsApp ${log.id} sent successfully`);
+        } else {
+          const retryCount = (log.retryCount || 0) + 1;
+          if (retryCount >= 3) {
+            await db
+              .update(whatsappLogs)
+              .set({
+                status: "failed",
+                errorMessage: result.error,
+                retryCount,
+              })
+              .where(eq(whatsappLogs.id, log.id));
+            console.error(`[QB Rewards Queue] WhatsApp ${log.id} failed after ${retryCount} retries`);
+          } else {
+            await db
+              .update(whatsappLogs)
+              .set({
+                status: "retrying",
+                errorMessage: result.error,
+                retryCount,
+              })
+              .where(eq(whatsappLogs.id, log.id));
+            console.log(`[QB Rewards Queue] WhatsApp ${log.id} will retry (attempt ${retryCount})`);
+          }
+        }
+      } catch (err) {
+        console.error(`[QB Rewards Queue] Error processing WhatsApp ${log.id}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[QB Rewards Queue] Error processing pending messages:", err);
   }
 }
 
 /**
  * Claim pending rewards when customer signs up
  */
-export async function claimPendingRewards(customerId: number, phone: string) {
+export async function claimPendingRewards(customerId: number, phone: string): Promise<void> {
   try {
     const db = await getDb();
     if (!db) throw new Error("Database connection failed");
-
-    const normalizedPhone = normalizeKuwaitPhone(phone);
-    if (!normalizedPhone) return;
 
     // Find all pending rewards for this phone
     const pendingList = await db
@@ -221,41 +342,35 @@ export async function claimPendingRewards(customerId: number, phone: string) {
       .from(pendingRewards)
       .where(
         and(
-          eq(pendingRewards.phone, normalizedPhone),
+          eq(pendingRewards.phone, phone),
           eq(pendingRewards.status, "pending")
         )
       );
 
     if (pendingList.length === 0) return;
 
-    let totalPointsClaimed = 0;
-
+    // Claim all pending rewards
     for (const pending of pendingList) {
-      // Add points to customer
-      totalPointsClaimed += pending.pointsEarned;
+      try {
+        // Add points to customer
+        const currentCustomer = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
+        if (currentCustomer.length > 0) {
+          const newTotal = (currentCustomer[0].totalPoints || 0) + pending.pointsEarned;
+          await db.update(customers).set({ totalPoints: newTotal }).where(eq(customers.id, customerId));
+        }
 
-      // Mark as claimed
-      await db
-        .update(pendingRewards)
-        .set({
-          status: "claimed",
-          customerId,
-          claimedAt: new Date(),
-        })
-        .where(eq(pendingRewards.id, pending.id));
-    }
+        // Mark pending reward as claimed
+        await db
+          .update(pendingRewards)
+          .set({ status: "claimed", claimedAt: new Date(), customerId })
+          .where(eq(pendingRewards.id, pending.id));
 
-    // Update customer points
-    if (totalPointsClaimed > 0) {
-      const currentCustomer = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1);
-      if (currentCustomer.length > 0) {
-        const newTotal = (currentCustomer[0].totalPoints || 0) + totalPointsClaimed;
-        await db.update(customers).set({ totalPoints: newTotal }).where(eq(customers.id, customerId));
+        console.log(`[QB Rewards] Claimed pending reward ${pending.id}: ${pending.pointsEarned} pts for customer ${customerId}`);
+      } catch (err) {
+        console.error(`[QB Rewards] Error claiming pending reward ${pending.id}:`, err);
       }
     }
-
-    console.log(`[QB Rewards] Claimed ${totalPointsClaimed} pending points for customer ${customerId}`);
-  } catch (error) {
-    console.error(`[QB Rewards] Error claiming pending rewards:`, error);
+  } catch (err) {
+    console.error("[QB Rewards] Error claiming pending rewards:", err);
   }
 }

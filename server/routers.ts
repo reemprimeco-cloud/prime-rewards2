@@ -59,6 +59,7 @@ import {
   getRegistry,
   lookupRegistry,
 } from "./db";
+import { claimPendingRewards } from "./qbRewardsEngine";
 import { eq, count, desc, and, gte } from "drizzle-orm";
 import {
   customers,
@@ -116,8 +117,11 @@ export const appRouter = router({
         });
         await seedDefaultBadges();
         await seedDefaultRewards();
-        // Send welcome WhatsApp if phone is available
+        // Claim any pending rewards if phone is available
         if (customer.phone) {
+          await claimPendingRewards(customer.id, customer.phone).catch((err) => {
+            console.error("[Customer] Failed to claim pending rewards:", err);
+          });
           sendWhatsApp(customer.phone, welcomeMessage(customer.fullName, customer.totalPoints)).catch(() => {});
         }
       }
@@ -157,6 +161,12 @@ export const appRouter = router({
         const hadPhone = !!customer.phone;
         await updateCustomer(customer.id, input);
         const updated = await getCustomerByUserId(ctx.user.id);
+        // Claim pending rewards when phone is added for the first time
+        if (!hadPhone && input.phone && updated) {
+          await claimPendingRewards(updated.id, input.phone).catch((err) => {
+            console.error("[Customer] Failed to claim pending rewards:", err);
+          });
+        }
         // Send welcome WhatsApp when phone is added for the first time and log it
         if (!hadPhone && input.phone && updated) {
           const msg = welcomeMessage(updated.fullName, updated.totalPoints);
