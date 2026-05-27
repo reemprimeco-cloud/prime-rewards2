@@ -161,6 +161,6 @@
 - [x] Send WhatsApp to new customers: signup invitation with points earned
 - [x] Send WhatsApp to existing customers: points added confirmation with balance
 - [x] Wire pending rewards into signup flow: auto-claim when customer registers with matching phone
-- [ ] Add admin QB Sync Logs page: show successful syncs, failed syncs, pending rewards
+- [x] Add admin QB Sync Logs page: show successful syncs, failed syncs, pending rewards
 - [x] Add retry system for failed WhatsApp sends
 - [x] Tests: QB event parsing (13 tests passing), point calculation, duplicate prevention, pending rewards claim

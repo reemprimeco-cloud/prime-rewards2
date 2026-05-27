@@ -25,6 +25,7 @@ import AdminWhatsApp from "./pages/admin/AdminWhatsApp";
 import AdminSuspicious from "./pages/admin/AdminSuspicious";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminRegistry from "./pages/admin/AdminRegistry";
+import { AdminQBSyncLogs } from "./pages/AdminQBSyncLogs";
 import InstallPrompt from "./components/InstallPrompt";
 
 function Router() {
@@ -50,6 +51,7 @@ function Router() {
       <Route path="/admin/suspicious" component={AdminSuspicious} />
       <Route path="/admin/analytics" component={AdminAnalytics} />
       <Route path="/admin/registry" component={AdminRegistry} />
+      <Route path="/admin/qb-sync" component={AdminQBSyncLogs} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
