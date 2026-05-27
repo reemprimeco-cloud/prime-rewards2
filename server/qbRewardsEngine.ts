@@ -1,7 +1,7 @@
 import { getDb, logWhatsApp } from "./db";
 import { customers, qbPaymentSyncs, pendingRewards, whatsappLogs } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
-import { sendWhatsApp } from "./whatsapp";
+import { sendWhatsApp, sendWhatsAppTemplate, normalisePhone } from "./whatsapp";
 
 const POINTS_PER_10_KD = 1;
 
@@ -126,32 +126,41 @@ export async function processQbPaymentEvent(eventData: {
           await db.update(customers).set({ totalPoints: newTotal }).where(eq(customers.id, customerId));
         }
 
-        // Send WhatsApp notification with logging
-        const message = `Prime Rewards 💙\n\n${pointsCalculated} points were added to your account from invoice #${eventData.invoiceNumber}\n\nView your rewards:\nhttps://primerewds.com`;
-        
-        const whatsappResult = await sendWhatsApp(normalizedPhone, message);
+        // Send WhatsApp template notification
+        const whatsappResult = await sendWhatsAppTemplate(
+          normalizedPhone,
+          "reward_notification",
+          {
+            customer_name: eventData.customerName || "Valued Customer",
+            points_earned: String(pointsCalculated),
+            invoice_number: eventData.invoiceNumber,
+          }
+        );
         
         // Log the WhatsApp send
+        const templateMessage = `Template: reward_notification | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
         if (whatsappResult.success) {
           await logWhatsApp({
             customerId,
             phone: normalizedPhone,
-            messageBody: message,
+            messageBody: templateMessage,
             messageType: "points_awarded",
             status: "sent",
             messageSid: whatsappResult.messageSid,
+            invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
           });
-          console.log(`[QB Rewards] WhatsApp sent to ${normalizedPhone} - SID: ${whatsappResult.messageSid}`);
+          console.log(`[QB Rewards] WhatsApp template sent to ${normalizedPhone} - SID: ${whatsappResult.messageSid}`);
         } else {
           await logWhatsApp({
             customerId,
             phone: normalizedPhone,
-            messageBody: message,
+            messageBody: templateMessage,
             messageType: "points_awarded",
             status: "failed",
             errorMessage: whatsappResult.error,
+            invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
           });
-          console.error(`[QB Rewards] WhatsApp send failed: ${whatsappResult.error}`);
+          console.error(`[QB Rewards] WhatsApp template send failed: ${whatsappResult.error}`);
         }
 
         // Mark sync as success
@@ -175,35 +184,45 @@ export async function processQbPaymentEvent(eventData: {
         return { status: "failed", error: String(error) };
       }
     } else {
-      // Customer doesn't exist: create pending reward and send signup invitation
+      // Customer doesn't exist: create pending reward and send signup invitation via template
       try {
         // Create pending reward
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 90); // 90 days expiry
         
-        // Send signup invitation WhatsApp
-        const signupMessage = `Prime Rewards 💙\n\nYou earned ${pointsCalculated} points from your recent order.\n\nCreate your free account to view and redeem your rewards:\nhttps://primerewds.com`;
-        const signupResult = await sendWhatsApp(normalizedPhone, signupMessage);
+        // Send signup invitation WhatsApp template
+        const signupResult = await sendWhatsAppTemplate(
+          normalizedPhone,
+          "reward_notification",
+          {
+            customer_name: eventData.customerName || "Valued Customer",
+            points_earned: String(pointsCalculated),
+            invoice_number: eventData.invoiceNumber,
+          }
+        );
         
         // Log the signup invitation WhatsApp
+        const templateMessage = `Template: reward_notification (signup) | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
         if (signupResult.success) {
           await logWhatsApp({
             phone: normalizedPhone,
-            messageBody: signupMessage,
+            messageBody: templateMessage,
             messageType: "points_awarded",
             status: "sent",
             messageSid: signupResult.messageSid,
+            invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
           });
-          console.log(`[QB Rewards] Signup invitation sent to ${normalizedPhone} - SID: ${signupResult.messageSid}`);
+          console.log(`[QB Rewards] Signup template sent to ${normalizedPhone} - SID: ${signupResult.messageSid}`);
         } else {
           await logWhatsApp({
             phone: normalizedPhone,
-            messageBody: signupMessage,
+            messageBody: templateMessage,
             messageType: "points_awarded",
             status: "failed",
             errorMessage: signupResult.error,
+            invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
           });
-          console.error(`[QB Rewards] Signup invitation send failed: ${signupResult.error}`);
+          console.error(`[QB Rewards] Signup template send failed: ${signupResult.error}`);
         }
 
         const pendingResult = await db.insert(pendingRewards).values({
@@ -213,7 +232,7 @@ export async function processQbPaymentEvent(eventData: {
           amount: eventData.amount.toString(),
           expiresAt,
           status: "pending",
-          message: signupMessage,
+          message: templateMessage,
         });
 
         // Mark sync as success
@@ -222,7 +241,7 @@ export async function processQbPaymentEvent(eventData: {
           .set({ status: "success", processedAt: new Date() })
           .where(eq(qbPaymentSyncs.id, syncId));
 
-        console.log(`[QB Rewards] Pending reward created for ${normalizedPhone}: ${pointsCalculated} pts, WhatsApp sent: ${signupResult.success}`);
+        console.log(`[QB Rewards] Pending reward created for ${normalizedPhone}: ${pointsCalculated} pts, WhatsApp template sent: ${signupResult.success}`);
         return {
           status: "success",
           pendingRewardId: (pendingResult as any).insertId || 1,

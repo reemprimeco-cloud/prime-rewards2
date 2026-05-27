@@ -725,7 +725,7 @@ export async function logWhatsApp(data: {
   messageType: "points_awarded" | "welcome" | "tier_upgrade" | "reward_redeemed" | "expiry_warning" | "spin_win" | "manual";
   messageBody: string;
   invoiceId?: number;
-  status?: "sent" | "failed" | "pending" | "retrying";
+  status?: "sent" | "failed" | "pending" | "retrying" | "delivered" | "read";
   messageSid?: string;
   errorMessage?: string;
 }): Promise<number | null> {

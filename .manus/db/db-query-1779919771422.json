@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `whatsapp_logs` MODIFY COLUMN `status` enum('sent','failed','pending','retrying','delivered','read') NOT NULL DEFAULT 'pending';\nALTER TABLE `whatsapp_logs` ADD `deliveredAt` timestamp;\nALTER TABLE `whatsapp_logs` ADD `twilioResponse` text;\nALTER TABLE `whatsapp_logs` ADD CONSTRAINT `whatsapp_logs_messageSid_unique` UNIQUE(`messageSid`);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute ALTER TABLE `whatsapp_logs` MODIFY COLUMN `status` enum('sent','failed','pending','retrying','delivered','read') NOT NULL DEFAULT 'pending';\nALTER TABLE `whatsapp_logs` ADD `deliveredAt` timestamp;\nALTER TABLE `whatsapp_logs` ADD `twilioResponse` text;\nALTER TABLE `whatsapp_logs` ADD CONSTRAINT `whatsapp_logs_messageSid_unique` UNIQUE(`messageSid`);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 6536
+}

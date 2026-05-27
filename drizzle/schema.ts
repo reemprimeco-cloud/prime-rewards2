@@ -216,12 +216,14 @@ export const whatsappLogs = mysqlTable("whatsapp_logs", {
   phone: varchar("phone", { length: 32 }).notNull(),
   messageType: mysqlEnum("messageType", ["points_awarded", "welcome", "tier_upgrade", "reward_redeemed", "expiry_warning", "spin_win", "manual"]).notNull(),
   messageBody: text("messageBody").notNull(),
-  status: mysqlEnum("status", ["sent", "failed", "pending", "retrying"]).default("pending").notNull(),
-  messageSid: varchar("messageSid", { length: 64 }),
+  status: mysqlEnum("status", ["sent", "failed", "pending", "retrying", "delivered", "read"]).default("pending").notNull(),
+  messageSid: varchar("messageSid", { length: 64 }).unique(),
   errorMessage: text("errorMessage"),
   retryCount: int("retryCount").default(0).notNull(),
   invoiceId: int("invoiceId"),
   sentAt: timestamp("sentAt"),
+  deliveredAt: timestamp("deliveredAt"),
+  twilioResponse: text("twilioResponse"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

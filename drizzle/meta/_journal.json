@@ -50,6 +50,13 @@
       "when": 1779829819876,
       "tag": "0006_funny_lizard",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1779919757002,
+      "tag": "0007_quick_corsair",
+      "breakpoints": true
     }
   ]
 }

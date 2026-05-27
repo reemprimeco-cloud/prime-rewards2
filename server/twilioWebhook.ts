@@ -58,12 +58,48 @@ export function registerTwilioWebhookRoutes(app: Express) {
   app.post("/api/twilio/whatsapp/status", async (req: Request, res: Response) => {
     try {
       console.log("[Twilio Status] Status update received");
-      console.log("[Twilio Status] Body:", JSON.stringify(req.body, null, 2));
+      console.log("[Twilio Status] Full Response:", JSON.stringify(req.body, null, 2));
 
       const messageSid = req.body.MessageSid;
       const messageStatus = req.body.MessageStatus; // sent, delivered, failed, read, etc.
+      const errorCode = req.body.ErrorCode;
+      const errorMessage = req.body.ErrorMessage;
 
-      console.log(`[Twilio Status] MessageSid: ${messageSid}, Status: ${messageStatus}`);
+      console.log(`[Twilio Status] MessageSid: ${messageSid}, Status: ${messageStatus}, ErrorCode: ${errorCode}`);
+
+      // Update whatsapp_logs with delivery status
+      try {
+        const { getDb } = await import("./db");
+        const { whatsappLogs } = await import("../drizzle/schema");
+        const { eq } = await import("drizzle-orm");
+        
+        const db = await getDb();
+        if (db && messageSid) {
+          // Map Twilio status to our status enum
+          let logStatus = "sent";
+          if (messageStatus === "failed" || messageStatus === "undelivered") {
+            logStatus = "failed";
+          }
+
+          const updateData: any = {
+            status: logStatus,
+            sentAt: new Date(),
+          };
+
+          // Log error details if present
+          if (errorCode || errorMessage) {
+            updateData.errorMessage = `Twilio ${messageStatus}: ${errorCode || ""} - ${errorMessage || ""}`;
+          }
+
+          await db.update(whatsappLogs)
+            .set(updateData)
+            .where(eq(whatsappLogs.messageSid, messageSid));
+          
+          console.log(`[Twilio Status] Updated whatsapp_logs for ${messageSid}: ${logStatus}`);
+        }
+      } catch (dbError) {
+        console.error("[Twilio Status] Failed to update database:", dbError);
+      }
 
       // Acknowledge receipt
       res.status(200).send("OK");

@@ -164,3 +164,15 @@
 - [x] Add admin QB Sync Logs page: show successful syncs, failed syncs, pending rewards
 - [x] Add retry system for failed WhatsApp sends
 - [x] Tests: QB event parsing (13 tests passing), point calculation, duplicate prevention, pending rewards claim
+
+## Phase 15: WhatsApp Template-Based Automation
+
+- [x] Update WhatsApp implementation to support template-based messages (sendWhatsAppTemplate)
+- [x] Update QB rewards engine to use approved reward_notification template
+- [x] Fix Kuwait phone normalization: +965, 00965, 965, 0, local formats with spaces/dashes
+- [x] Remove manual approval queue - send templates automatically on QB payment
+- [x] Update Twilio webhook to log delivery status to database
+- [x] Extend whatsapp_logs schema: add deliveredAt, twilioResponse, update status enum
+- [x] Apply database migration for delivery tracking
+- [x] Log full Twilio API responses in console for debugging
+- [x] Tests: 16 tests passing (phone normalization, template sending, delivery tracking)

@@ -19,18 +19,117 @@ export interface WhatsAppResult {
   error?: string;
 }
 
+export interface WhatsAppTemplateParams {
+  toPhone: string;
+  templateName: string;
+  templateParams: Record<string, string>;
+  customerId?: number;
+  invoiceId?: number;
+}
+
 // ─── Core Send ────────────────────────────────────────────────────────────────
 
 /**
- * Normalise a phone number to E.164 format.
- * Assumes Kuwait (+965) if no country code is present.
+ * Normalise a phone number to E.164 format (+965XXXXXXXX).
+ * Handles: +965XXXXXXXX, 00965XXXXXXXX, 965XXXXXXXX, 0XXXXXXXX, XXXXXXXX
+ * Removes spaces, dashes, and parentheses.
  */
 export function normalisePhone(raw: string): string {
+  if (!raw) return "";
+  
+  // Remove spaces, dashes, parentheses
   let p = raw.replace(/[\s\-()]/g, "");
-  if (!p.startsWith("+")) {
-    p = "+965" + p.replace(/^0+/, "");
+  
+  // Remove leading +
+  if (p.startsWith("+")) {
+    p = p.slice(1);
   }
-  return p;
+  
+  // Remove leading 00
+  if (p.startsWith("00")) {
+    p = p.slice(2);
+  }
+  
+  // Remove leading 0 (local format)
+  if (p.startsWith("0") && !p.startsWith("965")) {
+    p = p.slice(1);
+  }
+  
+  // If doesn't start with 965, add it
+  if (!p.startsWith("965")) {
+    p = "965" + p;
+  }
+  
+  // Return in E.164 format
+  return "+" + p;
+}
+
+/**
+ * Send a WhatsApp template message via the official Twilio REST API.
+ * Uses TWILIO_WHATSAPP_FROM (whatsapp:+15559682683) as the sender.
+ * 
+ * Template: reward_notification
+ * Params: {{1}} = customer name, {{2}} = points earned, {{3}} = invoice number
+ */
+export async function sendWhatsAppTemplate(
+  toPhone: string,
+  templateName: string,
+  templateParams: Record<string, string>
+): Promise<WhatsAppResult> {
+  const sid = ENV.twilioAccountSid;
+  const token = ENV.twilioAuthToken;
+  const from = ENV.twilioWhatsappFrom;
+
+  if (!sid || !token || !from) {
+    console.warn("[WhatsApp] Twilio credentials not configured — skipping");
+    return { success: false, error: "Twilio not configured" };
+  }
+
+  const normalised = normalisePhone(toPhone);
+  const to = normalised.startsWith("whatsapp:") ? normalised : `whatsapp:${normalised}`;
+
+  try {
+    const credentials = Buffer.from(`${sid}:${token}`).toString("base64");
+    
+    // Build template body with parameters
+    const bodyParams = new URLSearchParams({
+      From: from,
+      To: to,
+      ContentSid: templateName, // Twilio template SID or name
+    });
+    
+    // Add template parameters
+    Object.entries(templateParams).forEach(([key, value], index) => {
+      bodyParams.append(`ContentVariables`, JSON.stringify({ [index + 1]: value }));
+    });
+
+    const response = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: bodyParams.toString(),
+      }
+    );
+
+    const data = await response.json() as { sid?: string; error_message?: string; status?: string };
+
+    if (!response.ok) {
+      console.error("[WhatsApp] Template send failed:", data.error_message);
+      console.error("[WhatsApp] Full Twilio Response:", JSON.stringify(data));
+      return { success: false, error: data.error_message ?? `HTTP ${response.status}` };
+    }
+
+    console.log(`[WhatsApp] Template '${templateName}' sent to ${normalised} — SID: ${data.sid}`);
+    console.log("[WhatsApp] Twilio Response:", JSON.stringify(data));
+    return { success: true, messageSid: data.sid };
+  } catch (err: any) {
+    console.error("[WhatsApp] Network error:", err?.message);
+    return { success: false, error: err?.message ?? "Network error" };
+  }
 }
 
 /**
@@ -73,10 +172,12 @@ export async function sendWhatsApp(
 
     if (!response.ok) {
       console.error("[WhatsApp] Send failed:", data.error_message);
+      console.error("[WhatsApp] Full Twilio Response:", JSON.stringify(data));
       return { success: false, error: data.error_message ?? `HTTP ${response.status}` };
     }
 
     console.log(`[WhatsApp] Sent to ${normalised} — SID: ${data.sid}`);
+    console.log("[WhatsApp] Twilio Response:", JSON.stringify(data));
     return { success: true, messageSid: data.sid };
   } catch (err: any) {
     console.error("[WhatsApp] Network error:", err?.message);
