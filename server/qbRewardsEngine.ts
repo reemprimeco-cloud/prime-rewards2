@@ -51,6 +51,9 @@ export function calculatePoints(amountKD: number): number {
 
 /**
  * Process QB payment event: check for duplicates, calculate points, send WhatsApp
+ * EXECUTION SOURCE: QB Webhook Handler
+ * This function is ONLY called from POST /api/qb/webhook
+ * Do NOT use for signup/test flows
  */
 export async function processQbPaymentEvent(eventData: {
   qbInvoiceId: string;
@@ -64,17 +67,29 @@ export async function processQbPaymentEvent(eventData: {
     const db = await getDb();
     if (!db) throw new Error("Database connection failed");
 
+    // EXECUTION SOURCE: QB Payment Flow
+    console.log(`\n[QB Rewards] 🔵 EXECUTION SOURCE: QB Payment Webhook Handler`);
+    console.log(`[QB Rewards]   - Handler: processQbPaymentEvent()`);
+    console.log(`[QB Rewards]   - QB Invoice ID: ${eventData.qbInvoiceId}`);
+    console.log(`[QB Rewards]   - QB Customer: ${eventData.customerName}`);
+    console.log(`[QB Rewards]   - QB Phone: ${eventData.customerPhone}`);
+    console.log(`[QB Rewards]   - QB Invoice Number: ${eventData.invoiceNumber}`);
+    console.log(`[QB Rewards]   - QB Amount: ${eventData.amount}`);
+
     // Normalize phone
     const normalizedPhone = normalizeKuwaitPhone(eventData.customerPhone);
     if (!normalizedPhone) {
-      console.error(`[QB Rewards] Invalid phone: ${eventData.customerPhone}`);
+      console.error(`[QB Rewards] ❌ Invalid phone: ${eventData.customerPhone}`);
+      console.error(`[QB Rewards]   Aborting - cannot send WhatsApp without valid phone`);
       return {
         status: "failed",
         error: "Invalid phone number format",
       };
     }
+    console.log(`[QB Rewards] ✅ Phone normalized: ${normalizedPhone}`);
 
     // Check for duplicate: same QB invoice ID already processed
+    console.log(`[QB Rewards] 🔍 Checking for duplicate QB invoice: ${eventData.qbInvoiceId}`);
     const existing = await db
       .select()
       .from(qbPaymentSyncs)
@@ -82,17 +97,20 @@ export async function processQbPaymentEvent(eventData: {
       .limit(1);
 
     if (existing.length > 0) {
-      console.log(`[QB Rewards] Duplicate QB invoice: ${eventData.qbInvoiceId}`);
+      console.log(`[QB Rewards] ⚠️ DUPLICATE QB invoice already processed: ${eventData.qbInvoiceId}`);
       return {
         status: "duplicate",
         error: "QB invoice already processed",
       };
     }
+    console.log(`[QB Rewards] ✅ No duplicate found - proceeding with payment processing`);
 
     // Calculate points
     const pointsCalculated = calculatePoints(eventData.amount);
+    console.log(`[QB Rewards] 📊 Points calculated: ${pointsCalculated} (${eventData.amount} KD / 10)`);
 
     // Check if customer exists
+    console.log(`[QB Rewards] 👤 Checking if customer exists in system...`);
     const customerRecord = await db
       .select()
       .from(customers)
@@ -100,6 +118,11 @@ export async function processQbPaymentEvent(eventData: {
       .limit(1);
 
     const customerId = customerRecord.length > 0 ? customerRecord[0].id : null;
+    if (customerId) {
+      console.log(`[QB Rewards] ✅ Customer found in system: ID ${customerId}`);
+    } else {
+      console.log(`[QB Rewards] ℹ️ Customer NOT in system - will create pending reward`);
+    }
 
     // Log the sync attempt
     const syncResult = await db.insert(qbPaymentSyncs).values({
