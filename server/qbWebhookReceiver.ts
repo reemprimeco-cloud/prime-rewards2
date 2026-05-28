@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import { Express, Request, Response } from "express";
 import { processQbPaymentEvent } from "./qbRewardsEngine";
 import { lookupQBInvoice, fetchQBCustomer } from "./quickbooks";
 import crypto from "crypto";
@@ -46,6 +46,9 @@ export function registerQbWebhookReceiver(app: Express) {
    * POST /api/qb/webhook
    * Receives Payment / Invoice Paid events from QuickBooks.
    *
+   * CRITICAL: This endpoint MUST return HTTP 200 immediately.
+   * All heavy processing (invoice lookup, customer fetch, Twilio send) happens async in background.
+   *
    * Real QB payload shape:
    * {
    *   "eventNotifications": [{
@@ -64,65 +67,73 @@ export function registerQbWebhookReceiver(app: Express) {
     console.log(`[QB Webhook] Body: ${JSON.stringify(req.body, null, 2)}`);
     console.log(`[QB Webhook] ═══════════════════════════════════════════`);
 
-    // Always respond 200 immediately so Intuit doesn't retry
+    // ✅ CRITICAL: Always respond 200 immediately so Intuit doesn't retry or mark as failed
+    // Do NOT wait for processing — move all heavy work to async background
+    console.log("[QB Webhook] 📤 Responding HTTP 200 OK immediately");
     res.status(200).json({ received: true });
 
-    try {
-      // ── Step 1: Signature ──────────────────────────────────────────────
-      if (!validateQBWebhookSignature(req)) {
-        console.error("[QB Webhook] ❌ Signature validation failed — aborting");
-        return;
-      }
+    // ✅ Process webhook asynchronously in background (fire-and-forget)
+    // This prevents blocking the HTTP response and allows Intuit to consider delivery successful
+    (async () => {
+      try {
+        console.log("[QB Webhook] ⏳ Async processing started");
 
-      // ── Step 2: Parse payload ──────────────────────────────────────────
-      const body = req.body as any;
-
-      // Support both legacy flat format and real QB eventNotifications format
-      let notifications: any[] = [];
-
-      if (Array.isArray(body?.eventNotifications)) {
-        // Real QB format
-        notifications = body.eventNotifications;
-        console.log(`[QB Webhook] 📋 Real QB format — ${notifications.length} notification(s)`);
-      } else if (Array.isArray(body?.entities)) {
-        // Legacy / test format
-        notifications = [{
-          realmId: body.realmId ?? "unknown",
-          dataChangeEvent: { entities: body.entities }
-        }];
-        console.log(`[QB Webhook] 📋 Legacy format — wrapped into 1 notification`);
-      } else {
-        console.warn("[QB Webhook] ⚠️  Unrecognised payload shape — nothing to process");
-        console.warn("[QB Webhook] Body keys:", Object.keys(body ?? {}));
-        return;
-      }
-
-      // ── Step 3: Process each notification ─────────────────────────────
-      for (const notification of notifications) {
-        const realmId = notification.realmId;
-        const entities: any[] = notification?.dataChangeEvent?.entities ?? [];
-
-        console.log(`\n[QB Webhook] 🏢 Realm: ${realmId}  |  Entities: ${entities.length}`);
-
-        for (const entity of entities) {
-          console.log(`\n[QB Webhook] ── Entity: name=${entity.name}  id=${entity.id}  op=${entity.operation}`);
-
-          // We care about Invoice entities with Create or Update operations
-          if (entity.name !== "Invoice") {
-            console.log(`[QB Webhook]   ⏭️  Skipping non-Invoice entity (${entity.name})`);
-            continue;
-          }
-
-          await processInvoiceEntity(entity.id, realmId);
+        // ── Step 1: Signature ──────────────────────────────────────────────
+        if (!validateQBWebhookSignature(req)) {
+          console.error("[QB Webhook] ❌ Signature validation failed — aborting async processing");
+          return;
         }
+
+        // ── Step 2: Parse payload ──────────────────────────────────────────
+        const body = req.body as any;
+
+        // Support both legacy flat format and real QB eventNotifications format
+        let notifications: any[] = [];
+
+        if (Array.isArray(body?.eventNotifications)) {
+          // Real QB format
+          notifications = body.eventNotifications;
+          console.log(`[QB Webhook] 📋 Real QB format — ${notifications.length} notification(s)`);
+        } else if (Array.isArray(body?.entities)) {
+          // Legacy / test format
+          notifications = [{
+            realmId: body.realmId ?? "unknown",
+            dataChangeEvent: { entities: body.entities }
+          }];
+          console.log(`[QB Webhook] 📋 Legacy format — wrapped into 1 notification`);
+        } else {
+          console.warn("[QB Webhook] ⚠️  Unrecognised payload shape — nothing to process");
+          console.warn("[QB Webhook] Body keys:", Object.keys(body ?? {}));
+          return;
+        }
+
+        // ── Step 3: Process each notification ─────────────────────────
+        for (const notification of notifications) {
+          const realmId = notification.realmId;
+          const entities: any[] = notification?.dataChangeEvent?.entities ?? [];
+
+          console.log(`\n[QB Webhook] 🏢 Realm: ${realmId}  |  Entities: ${entities.length}`);
+
+          for (const entity of entities) {
+            console.log(`\n[QB Webhook] ── Entity: name=${entity.name}  id=${entity.id}  op=${entity.operation}`);
+
+            // We care about Invoice entities with Create or Update operations
+            if (entity.name !== "Invoice") {
+              console.log(`[QB Webhook]   ⏭️  Skipping non-Invoice entity (${entity.name})`);
+              continue;
+            }
+
+            await processInvoiceEntity(entity.id, realmId);
+          }
+        }
+
+        console.log(`[QB Webhook] ✅ Async processing complete\n`);
+
+      } catch (err: any) {
+        console.error("[QB Webhook] ❌ Async processing failed:", err?.message);
+        console.error("[QB Webhook] Stack:", err?.stack);
       }
-
-      console.log(`[QB Webhook] ✅ Webhook processing complete\n`);
-
-    } catch (err: any) {
-      console.error("[QB Webhook] ❌ Unhandled error:", err?.message);
-      console.error("[QB Webhook] Stack:", err?.stack);
-    }
+    })(); // Fire-and-forget: do not await this
   });
 
   /**
@@ -161,94 +172,100 @@ export function registerQbWebhookReceiver(app: Express) {
 async function processInvoiceEntity(invoiceId: string, realmId: string) {
   console.log(`\n[QB Webhook] 🔍 Fetching invoice ${invoiceId} from QB API (realm: ${realmId})`);
 
-  // ── Fetch invoice ────────────────────────────────────────────────────
-  const lookupResult = await lookupQBInvoice(invoiceId);
+  try {
+    // ── Fetch invoice ────────────────────────────────────────────────────
+    const lookupResult = await lookupQBInvoice(invoiceId);
 
-  if (!lookupResult.found || !lookupResult.invoice) {
-    console.error(`[QB Webhook] ❌ Invoice ${invoiceId} not found in QB`);
-    return;
-  }
-
-  const invoice = lookupResult.invoice;
-  console.log(`[QB Webhook] ✅ Invoice fetched:`);
-  console.log(`[QB Webhook]   DocNumber   : ${invoice.DocNumber}`);
-  console.log(`[QB Webhook]   TotalAmt    : ${invoice.TotalAmt}`);
-  console.log(`[QB Webhook]   Balance     : ${invoice.Balance}`);
-  console.log(`[QB Webhook]   Status      : ${lookupResult.status}`);
-  console.log(`[QB Webhook]   CustomerRef : ${JSON.stringify(invoice.CustomerRef)}`);
-
-  // ── Check payment status ─────────────────────────────────────────────
-  if (lookupResult.status !== "paid") {
-    console.log(`[QB Webhook] ⏭️  Invoice ${invoice.DocNumber} is not paid (status: ${lookupResult.status}) — skipping`);
-    return;
-  }
-
-  console.log(`[QB Webhook] 💳 Invoice is PAID — proceeding`);
-
-  // ── Extract invoice details ──────────────────────────────────────────
-  const customerId = invoice.CustomerRef?.value;
-  const invoiceNumber = invoice.DocNumber;
-  const amount = invoice.TotalAmt;
-
-  if (!customerId) {
-    console.error(`[QB Webhook] ❌ Invoice ${invoiceNumber} has no CustomerRef.value — cannot fetch customer`);
-    return;
-  }
-
-  // ── Fetch customer ───────────────────────────────────────────────────
-  console.log(`\n[QB Webhook] 👤 Fetching customer ${customerId} from QB API`);
-  const customer = await fetchQBCustomer(customerId);
-
-  if (!customer) {
-    console.error(`[QB Webhook] ❌ Customer ${customerId} not found in QB`);
-    return;
-  }
-
-  console.log(`[QB Webhook] ✅ Customer fetched:`);
-  console.log(`[QB Webhook]   DisplayName  : ${customer.DisplayName}`);
-  console.log(`[QB Webhook]   Mobile       : ${customer.Mobile}`);
-  console.log(`[QB Webhook]   PrimaryPhone : ${customer.PrimaryPhone}`);
-  console.log(`[QB Webhook]   Full object  : ${JSON.stringify(customer, null, 2)}`);
-
-  // ── Extract phone — ONLY real QB fields, no fallback ─────────────────
-  const rawPhone = (customer.Mobile || customer.PrimaryPhone) as string | undefined;
-
-  if (!rawPhone) {
-    console.error(`[QB Webhook] ❌ No phone number for customer "${customer.DisplayName}" (id: ${customerId})`);
-    console.error(`[QB Webhook]   Mobile field       : ${customer.Mobile}`);
-    console.error(`[QB Webhook]   PrimaryPhone field : ${customer.PrimaryPhone}`);
-    console.error(`[QB Webhook]   Action: ABORTING — will not send WhatsApp without real phone`);
-    return;
-  }
-
-  const customerName = customer.DisplayName;
-  console.log(`\n[QB Webhook] 📞 Phone extracted:`);
-  console.log(`[QB Webhook]   Raw phone  : ${rawPhone}`);
-  console.log(`[QB Webhook]   Customer   : ${customerName}`);
-  console.log(`[QB Webhook]   Invoice    : ${invoiceNumber}`);
-  console.log(`[QB Webhook]   Amount     : ${amount}`);
-
-  // ── Trigger rewards engine ───────────────────────────────────────────
-  console.log(`\n[QB Webhook] 🎯 Triggering rewards engine`);
-
-  const result = await processQbPaymentEvent({
-    qbInvoiceId: invoiceId,
-    invoiceNumber,
-    customerPhone: rawPhone,
-    customerName,
-    amount,
-  });
-
-  console.log(`[QB Webhook] Rewards result: ${JSON.stringify(result, null, 2)}`);
-
-  if (result.status === "success") {
-    if ("pointsAdded" in result) {
-      console.log(`[QB Webhook] ✅ Points added: ${result.pointsAdded} → customer ${result.customerId}`);
-    } else if ("pointsPending" in result) {
-      console.log(`[QB Webhook] ⏳ Points pending (customer not registered): ${result.pointsPending}`);
+    if (!lookupResult.found || !lookupResult.invoice) {
+      console.error(`[QB Webhook] ❌ Invoice ${invoiceId} not found in QB`);
+      return;
     }
-    console.log(`[QB Webhook] 📤 WhatsApp template sent to: ${rawPhone}`);
-  } else {
-    console.error(`[QB Webhook] ❌ Rewards engine error: ${result.error}`);
+
+    const invoice = lookupResult.invoice;
+    console.log(`[QB Webhook] ✅ Invoice fetched:`);
+    console.log(`[QB Webhook]   DocNumber   : ${invoice.DocNumber}`);
+    console.log(`[QB Webhook]   TotalAmt    : ${invoice.TotalAmt}`);
+    console.log(`[QB Webhook]   Balance     : ${invoice.Balance}`);
+    console.log(`[QB Webhook]   Status      : ${lookupResult.status}`);
+    console.log(`[QB Webhook]   CustomerRef : ${JSON.stringify(invoice.CustomerRef)}`);
+
+    // ── Check payment status ─────────────────────────────────────────────
+    if (lookupResult.status !== "paid") {
+      console.log(`[QB Webhook] ⏭️  Invoice ${invoice.DocNumber} is not paid (status: ${lookupResult.status}) — skipping`);
+      return;
+    }
+
+    console.log(`[QB Webhook] 💳 Invoice is PAID — proceeding`);
+
+    // ── Extract invoice details ──────────────────────────────────────────
+    const customerId = invoice.CustomerRef?.value;
+    const invoiceNumber = invoice.DocNumber;
+    const amount = invoice.TotalAmt;
+
+    if (!customerId) {
+      console.error(`[QB Webhook] ❌ Invoice ${invoiceNumber} has no CustomerRef.value — cannot fetch customer`);
+      return;
+    }
+
+    // ── Fetch customer ───────────────────────────────────────────────────
+    console.log(`\n[QB Webhook] 👤 Fetching customer ${customerId} from QB API`);
+    const customer = await fetchQBCustomer(customerId);
+
+    if (!customer) {
+      console.error(`[QB Webhook] ❌ Customer ${customerId} not found in QB`);
+      return;
+    }
+
+    console.log(`[QB Webhook] ✅ Customer fetched:`);
+    console.log(`[QB Webhook]   DisplayName  : ${customer.DisplayName}`);
+    console.log(`[QB Webhook]   Mobile       : ${customer.Mobile}`);
+    console.log(`[QB Webhook]   PrimaryPhone : ${customer.PrimaryPhone}`);
+    console.log(`[QB Webhook]   Full object  : ${JSON.stringify(customer, null, 2)}`);
+
+    // ── Extract phone — ONLY real QB fields, no fallback ─────────────────
+    const rawPhone = (customer.Mobile || customer.PrimaryPhone) as string | undefined;
+
+    if (!rawPhone) {
+      console.error(`[QB Webhook] ❌ No phone number for customer "${customer.DisplayName}" (id: ${customerId})`);
+      console.error(`[QB Webhook]   Mobile field       : ${customer.Mobile}`);
+      console.error(`[QB Webhook]   PrimaryPhone field : ${customer.PrimaryPhone}`);
+      console.error(`[QB Webhook]   Action: ABORTING — will not send WhatsApp without real phone`);
+      return;
+    }
+
+    const customerName = customer.DisplayName;
+    console.log(`\n[QB Webhook] 📞 Phone extracted:`);
+    console.log(`[QB Webhook]   Raw phone  : ${rawPhone}`);
+    console.log(`[QB Webhook]   Customer   : ${customerName}`);
+    console.log(`[QB Webhook]   Invoice    : ${invoiceNumber}`);
+    console.log(`[QB Webhook]   Amount     : ${amount}`);
+
+    // ── Trigger rewards engine ───────────────────────────────────────────
+    console.log(`\n[QB Webhook] 🎯 Triggering rewards engine`);
+
+    const result = await processQbPaymentEvent({
+      qbInvoiceId: invoiceId,
+      invoiceNumber,
+      customerPhone: rawPhone,
+      customerName,
+      amount,
+    });
+
+    console.log(`[QB Webhook] Rewards result: ${JSON.stringify(result, null, 2)}`);
+
+    if (result.status === "success") {
+      if ("pointsAdded" in result) {
+        console.log(`[QB Webhook] ✅ Points added: ${result.pointsAdded} → customer ${result.customerId}`);
+      } else if ("pointsPending" in result) {
+        console.log(`[QB Webhook] ⏳ Points pending (customer not registered): ${result.pointsPending}`);
+      }
+      console.log(`[QB Webhook] 📤 WhatsApp template sent to: ${rawPhone}`);
+    } else {
+      console.error(`[QB Webhook] ❌ Rewards processing failed: ${result.error}`);
+    }
+
+  } catch (err: any) {
+    console.error(`[QB Webhook] ❌ Error processing invoice ${invoiceId}:`, err?.message);
+    console.error(`[QB Webhook] Stack:`, err?.stack);
   }
 }
