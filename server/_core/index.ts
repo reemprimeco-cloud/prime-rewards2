@@ -35,20 +35,15 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
   
-  // Middleware to capture raw body for webhook signature validation
-  app.use((req, res, next) => {
-    let data = "";
-    req.on("data", chunk => {
-      data += chunk;
-    });
-    req.on("end", () => {
-      (req as any).rawBody = data;
-      next();
-    });
-  });
-  
   // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
+  // Use verify callback to capture raw body for webhook signature validation
+  // This avoids stream conflicts by reading the body only once
+  app.use(express.json({
+    limit: "50mb",
+    verify: (req: any, _res, buf) => {
+      req.rawBody = buf.toString("utf8");
+    }
+  }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);

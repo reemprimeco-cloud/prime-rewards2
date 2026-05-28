@@ -213,8 +213,9 @@ export interface QBInvoice {
 export interface QBCustomer {
   Id: string;
   DisplayName: string;
-  PrimaryPhone?: string;
-  Mobile?: string;
+  // QB API returns phone as { FreeFormNumber: "..." } objects, not plain strings
+  PrimaryPhone?: { FreeFormNumber?: string } | string;
+  Mobile?: { FreeFormNumber?: string } | string;
   Email?: string;
   BillAddr?: {
     City?: string;
@@ -267,15 +268,87 @@ export async function fetchQBCustomer(customerId: string): Promise<QBCustomer | 
       return null;
     }
 
-    const customer = customers[0];
-    console.log(`[QB] Fetched QB Customer Object:`, JSON.stringify(customer, null, 2));
-    console.log(`[QB] Customer DisplayName: ${customer.DisplayName}`);
-    console.log(`[QB] Customer Mobile: ${customer.Mobile}`);
-    console.log(`[QB] Customer PrimaryPhone: ${customer.PrimaryPhone}`);
+    const rawCustomer = customers[0];
+    console.log(`[QB] Fetched QB Customer Object:`, JSON.stringify(rawCustomer, null, 2));
+
+    // Normalise phone fields: QB returns { FreeFormNumber: "..." } objects
+    const extractPhone = (field: any): string | undefined => {
+      if (!field) return undefined;
+      if (typeof field === "string") return field || undefined;
+      if (typeof field === "object" && field.FreeFormNumber) return field.FreeFormNumber;
+      return undefined;
+    };
+
+    const customer: QBCustomer = {
+      ...rawCustomer,
+      Mobile: extractPhone(rawCustomer.Mobile),
+      PrimaryPhone: extractPhone(rawCustomer.PrimaryPhone),
+    };
+
+    console.log(`[QB] Customer DisplayName  : ${customer.DisplayName}`);
+    console.log(`[QB] Customer Mobile       : ${customer.Mobile}`);
+    console.log(`[QB] Customer PrimaryPhone : ${customer.PrimaryPhone}`);
     return customer;
   } catch (err: any) {
     console.error(`[QB] Error fetching customer ${customerId}:`, err?.message);
     return null;
+  }
+}
+
+/** Look up an invoice by QB entity ID (from webhook) */
+export async function lookupQBInvoiceById(invoiceId: string): Promise<QBInvoiceLookupResult> {
+  try {
+    const accessToken = await getValidAccessToken();
+    const realmId = await getQBRealmId();
+    const baseUrl = QB_BASE_URLS[ENV.qbEnvironment];
+
+    // QB entity ID is numeric, fetch directly by ID
+    const safeId = invoiceId.replace(/['^\\]/g, "");
+    const url = `${baseUrl}/v3/company/${realmId}/invoice/${safeId}?minorversion=65`;
+
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        return { found: false, status: "not_found" };
+      }
+      const text = await res.text();
+      throw new Error(`QB API error: ${res.status} ${text}`);
+    }
+
+    const inv = await res.json();
+    console.log(`[QB] Fetched invoice by ID ${invoiceId}:`, JSON.stringify(inv, null, 2));
+    let status: QBInvoiceStatus;
+
+    if (inv.Balance === 0) {
+      status = "paid";
+    } else if (inv.Balance < inv.TotalAmt) {
+      status = "partial";
+    } else {
+      status = "unpaid";
+    }
+
+    return {
+      found: true,
+      status,
+      invoice: inv,
+      customerName: inv.CustomerRef?.name,
+      totalAmount: inv.TotalAmt,
+    };
+  } catch (err: any) {
+    console.error(`[QB] Invoice lookup by ID error:`, err?.message);
+    const isTokenExpired = (err?.message ?? "").includes("QB_TOKEN_EXPIRED");
+    return {
+      found: false,
+      status: "not_found",
+      tokenExpired: isTokenExpired,
+      errorMessage: err?.message,
+    };
   }
 }
 
