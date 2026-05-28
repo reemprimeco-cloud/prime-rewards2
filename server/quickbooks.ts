@@ -210,6 +210,19 @@ export interface QBInvoice {
   CustomerRef: { value: string; name: string };
 }
 
+export interface QBCustomer {
+  Id: string;
+  DisplayName: string;
+  PrimaryPhone?: string;
+  Mobile?: string;
+  Email?: string;
+  BillAddr?: {
+    City?: string;
+    CountrySubDivisionCode?: string;
+    PostalCode?: string;
+  };
+}
+
 export type QBInvoiceStatus = "paid" | "unpaid" | "partial" | "not_found";
 
 export interface QBInvoiceLookupResult {
@@ -220,6 +233,44 @@ export interface QBInvoiceLookupResult {
   customerName?: string;
   totalAmount?: number;
   errorMessage?: string;
+}
+
+/** Fetch customer details from QB API including mobile phone */
+export async function fetchQBCustomer(customerId: string): Promise<QBCustomer | null> {
+  try {
+    const accessToken = await getValidAccessToken();
+    const realmId = await getQBRealmId();
+    const baseUrl = QB_BASE_URLS[ENV.qbEnvironment];
+
+    const safeId = customerId.replace(/['"\\]/g, "");
+    const query = `SELECT * FROM Customer WHERE Id = '${safeId}'`;
+    const url = `${baseUrl}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=65`;
+
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    if (!res.ok) {
+      console.warn(`[QB] Failed to fetch customer ${customerId}: ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const customers: QBCustomer[] = data?.QueryResponse?.Customer ?? [];
+
+    if (customers.length === 0) {
+      console.warn(`[QB] Customer not found: ${customerId}`);
+      return null;
+    }
+
+    return customers[0];
+  } catch (err: any) {
+    console.error(`[QB] Error fetching customer ${customerId}:`, err?.message);
+    return null;
+  }
 }
 
 /** Look up an invoice by document number in QuickBooks */

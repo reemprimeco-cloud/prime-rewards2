@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { processQbPaymentEvent } from "./qbRewardsEngine";
-import { lookupQBInvoice } from "./quickbooks";
+import { lookupQBInvoice, fetchQBCustomer } from "./quickbooks";
 import crypto from "crypto";
 
 // Webhook signature validation using Intuit's verification token
@@ -108,11 +108,37 @@ export function registerQbWebhookReceiver(app: Express) {
 
             console.log(`[QB Webhook] ✅ Invoice is PAID - processing payment`);
 
-            // Extract payment details
-            const customerName = invoice.CustomerRef?.name || "Valued Customer";
-            const customerPhone = invoice.CustomerRef?.value; // QB stores phone in customer ID field
+            // Extract invoice details
+            const customerId = invoice.CustomerRef?.value;
             const invoiceNumber = invoice.DocNumber;
             const amount = invoice.TotalAmt;
+
+            // Fetch REAL customer data from QB (including mobile phone)
+            console.log(`[QB Webhook] 📞 Fetching real customer data from QB...`);
+            const customer = await fetchQBCustomer(customerId);
+            
+            if (!customer) {
+              console.error(`[QB Webhook] ❌ Could not fetch customer details for ID: ${customerId}`);
+              continue;
+            }
+
+            // Use REAL customer mobile phone (not fallback)
+            const customerPhone = customer.Mobile || customer.PrimaryPhone;
+            if (!customerPhone) {
+              console.error(`[QB Webhook] ❌ Customer has no mobile or primary phone number`);
+              console.error(`[QB Webhook]   Customer ID: ${customerId}`);
+              console.error(`[QB Webhook]   Customer Name: ${customer.DisplayName}`);
+              continue;
+            }
+
+            const customerName = customer.DisplayName;
+
+            console.log(`[QB Webhook] ✅ Real QB Customer Data:`);
+            console.log(`[QB Webhook]   - QB Customer Name: ${customerName}`);
+            console.log(`[QB Webhook]   - QB Mobile: ${customerPhone}`);
+            console.log(`[QB Webhook]   - Invoice Number: ${invoiceNumber}`);
+            console.log(`[QB Webhook]   - Amount: ${amount} KD`);
+            console.log(`[QB Webhook]   - Twilio Destination: whatsapp:+${customerPhone.replace(/\D/g, "")}`);
 
             // Trigger rewards engine (processes payment, calculates points, sends WhatsApp)
             console.log(`[QB Webhook] 🎯 Triggering rewards engine...`);
