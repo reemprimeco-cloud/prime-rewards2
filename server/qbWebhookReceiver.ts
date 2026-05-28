@@ -1,22 +1,76 @@
 import type { Express, Request, Response } from "express";
 import { processQbPaymentEvent } from "./qbRewardsEngine";
+import { lookupQBInvoice } from "./quickbooks";
+import crypto from "crypto";
+
+// Webhook signature validation using Intuit's verification token
+function validateQBWebhookSignature(req: Request): boolean {
+  try {
+    // Get the signature from the header
+    const signature = req.headers["intuit-signature"] as string;
+    if (!signature) {
+      console.warn("[QB Webhook] Missing intuit-signature header");
+      return false;
+    }
+
+    // Get the webhook verification token from environment
+    const verificationToken = process.env.QB_WEBHOOK_VERIFICATION_TOKEN;
+    if (!verificationToken) {
+      console.warn("[QB Webhook] QB_WEBHOOK_VERIFICATION_TOKEN not configured");
+      return false;
+    }
+
+    // Get the raw request body
+    const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+    
+    // Create the hash: HMAC-SHA256 of (body + token)
+    const hash = crypto
+      .createHmac("sha256", verificationToken)
+      .update(rawBody)
+      .digest("base64");
+
+    // Compare signatures
+    const isValid = hash === signature;
+    if (!isValid) {
+      console.warn("[QB Webhook] Signature validation failed");
+      console.warn("[QB Webhook] Expected:", hash);
+      console.warn("[QB Webhook] Got:", signature);
+    }
+    return isValid;
+  } catch (err) {
+    console.error("[QB Webhook] Signature validation error:", err);
+    return false;
+  }
+}
 
 export function registerQbWebhookReceiver(app: Express) {
   /**
-   * POST /api/qb/webhook - Receive QB payment events
-   * QB sends: { eventType: "Invoice.Change", entities: [{ name: "Invoice", id: "..." }], ... }
+   * POST /api/qb/webhook - Production QB webhook endpoint
+   * Receives Payment/Invoice Paid events from QuickBooks
+   * Validates signature, processes payment, triggers rewards, sends WhatsApp
    */
   app.post("/api/qb/webhook", async (req: Request, res: Response) => {
     try {
-      console.log("[QB Webhook] Received event");
-      console.log("[QB Webhook] Body:", JSON.stringify(req.body, null, 2));
+      console.log("[QB Webhook] ========================================");
+      console.log("[QB Webhook] Webhook received at:", new Date().toISOString());
+      console.log("[QB Webhook] Event ID:", req.body.id);
+      console.log("[QB Webhook] Event Type:", req.body.eventType);
 
-      // Acknowledge receipt immediately
-      res.status(200).send("OK");
+      // Validate webhook signature
+      const isValidSignature = validateQBWebhookSignature(req);
+      if (!isValidSignature) {
+        console.error("[QB Webhook] ❌ SIGNATURE VALIDATION FAILED");
+        return res.status(401).json({ error: "Invalid signature" });
+      }
+      console.log("[QB Webhook] ✅ Signature validated");
+
+      // Acknowledge receipt immediately (HTTP 200)
+      res.status(200).json({ status: "received" });
 
       // Parse QB event
       const eventType = req.body.eventType;
       const entities = req.body.entities || [];
+      const webhookEventId = req.body.id;
 
       // Only process Invoice.Change events
       if (eventType !== "Invoice.Change") {
@@ -24,31 +78,79 @@ export function registerQbWebhookReceiver(app: Express) {
         return;
       }
 
-      // Process each entity
+      console.log(`[QB Webhook] Processing ${entities.length} entities`);
+
+      // Process each invoice entity
       for (const entity of entities) {
         if (entity.name === "Invoice") {
-          console.log(`[QB Webhook] Processing invoice: ${entity.id}`);
-          
-          // In a real scenario, you'd fetch the full invoice from QB API
-          // For now, we'll extract what we can from the webhook
-          // You'll need to implement QB API calls to get full invoice details
-          
-          // Example structure (you'd get this from QB API):
-          // const invoice = await getQbInvoice(entity.id);
-          // await processQbPaymentEvent({
-          //   qbInvoiceId: invoice.id,
-          //   invoiceNumber: invoice.docNumber,
-          //   customerPhone: invoice.customerRef.value, // QB customer ID
-          //   customerName: invoice.customerRef.name,
-          //   amount: invoice.totalAmt,
-          //   webhookEventId: req.body.id,
-          // });
+          try {
+            console.log(`[QB Webhook] 📋 Processing invoice ID: ${entity.id}`);
+
+            // Fetch full invoice details from QB API
+            const lookupResult = await lookupQBInvoice(entity.id);
+            
+            if (!lookupResult.found || !lookupResult.invoice) {
+              console.warn(`[QB Webhook] ⚠️ Invoice not found: ${entity.id}`);
+              continue;
+            }
+
+            const invoice = lookupResult.invoice;
+            console.log(`[QB Webhook] 📄 Invoice Number: ${invoice.DocNumber}`);
+            console.log(`[QB Webhook] 💰 Amount: ${invoice.TotalAmt}`);
+            console.log(`[QB Webhook] 💳 Balance: ${invoice.Balance}`);
+            console.log(`[QB Webhook] 👤 Customer: ${invoice.CustomerRef?.name}`);
+
+            // Only process PAID invoices (Balance = 0)
+            if (lookupResult.status !== "paid") {
+              console.log(`[QB Webhook] ⏭️ Invoice not paid yet (status: ${lookupResult.status}), skipping`);
+              continue;
+            }
+
+            console.log(`[QB Webhook] ✅ Invoice is PAID - processing payment`);
+
+            // Extract payment details
+            const customerName = invoice.CustomerRef?.name || "Valued Customer";
+            const customerPhone = invoice.CustomerRef?.value; // QB stores phone in customer ID field
+            const invoiceNumber = invoice.DocNumber;
+            const amount = invoice.TotalAmt;
+
+            // Trigger rewards engine (processes payment, calculates points, sends WhatsApp)
+            console.log(`[QB Webhook] 🎯 Triggering rewards engine...`);
+            const result = await processQbPaymentEvent({
+              qbInvoiceId: entity.id,
+              invoiceNumber,
+              customerPhone,
+              customerName,
+              amount,
+              webhookEventId,
+            });
+
+            console.log(`[QB Webhook] 🎁 Rewards Engine Result:`, JSON.stringify(result, null, 2));
+
+            if (result.status === "success") {
+              console.log(`[QB Webhook] ✅ PAYMENT PROCESSED SUCCESSFULLY`);
+              if ("pointsAdded" in result) {
+                console.log(`[QB Webhook]   - Points Added: ${result.pointsAdded}`);
+                console.log(`[QB Webhook]   - Customer ID: ${result.customerId}`);
+              } else if ("pointsPending" in result) {
+                console.log(`[QB Webhook]   - Points Pending: ${result.pointsPending}`);
+                console.log(`[QB Webhook]   - Pending Reward ID: ${result.pendingRewardId}`);
+              }
+            } else {
+              console.error(`[QB Webhook] ❌ PAYMENT PROCESSING FAILED:`, result.error);
+            }
+          } catch (entityErr: any) {
+            console.error(`[QB Webhook] ❌ Error processing entity ${entity.id}:`, entityErr?.message);
+          }
         }
       }
-    } catch (error) {
-      console.error("[QB Webhook] Error:", error);
-      // Still return 200 to acknowledge
-      res.status(200).send("OK");
+
+      console.log("[QB Webhook] ========================================\n");
+    } catch (error: any) {
+      console.error("[QB Webhook] ❌ WEBHOOK ERROR:", error?.message);
+      console.error("[QB Webhook] Stack:", error?.stack);
+      // Still return 200 to acknowledge to Intuit
+      res.status(200).json({ status: "error", message: String(error) });
     }
   });
 
