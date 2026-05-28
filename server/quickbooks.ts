@@ -259,6 +259,7 @@ export async function fetchQBCustomer(customerId: string): Promise<QBCustomer | 
     }
 
     const data = await res.json();
+    console.log(`[QB] Full QB API Response for customer ${customerId}:`, JSON.stringify(data, null, 2));
     const customers: QBCustomer[] = data?.QueryResponse?.Customer ?? [];
 
     if (customers.length === 0) {
@@ -266,7 +267,12 @@ export async function fetchQBCustomer(customerId: string): Promise<QBCustomer | 
       return null;
     }
 
-    return customers[0];
+    const customer = customers[0];
+    console.log(`[QB] Fetched QB Customer Object:`, JSON.stringify(customer, null, 2));
+    console.log(`[QB] Customer DisplayName: ${customer.DisplayName}`);
+    console.log(`[QB] Customer Mobile: ${customer.Mobile}`);
+    console.log(`[QB] Customer PrimaryPhone: ${customer.PrimaryPhone}`);
+    return customer;
   } catch (err: any) {
     console.error(`[QB] Error fetching customer ${customerId}:`, err?.message);
     return null;

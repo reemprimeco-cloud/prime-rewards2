@@ -51,130 +51,223 @@ export function registerQbWebhookReceiver(app: Express) {
    */
   app.post("/api/qb/webhook", async (req: Request, res: Response) => {
     try {
-      console.log("[QB Webhook] ========================================");
-      console.log("[QB Webhook] Webhook received at:", new Date().toISOString());
-      console.log("[QB Webhook] Event ID:", req.body.id);
-      console.log("[QB Webhook] Event Type:", req.body.eventType);
+      console.log("\n[QB Webhook] ════════════════════════════════════════════════════════");
+      console.log("[QB Webhook] 🚀 WEBHOOK EXECUTION STARTED");
+      console.log("[QB Webhook] ════════════════════════════════════════════════════════");
+      console.log("[QB Webhook] Received at:", new Date().toISOString());
 
-      // Validate webhook signature
+      // STEP 0: Log full payload
+      console.log("\n[QB Webhook] 📥 STEP 0: Webhook Payload Received");
+      console.log("[QB Webhook] Full Payload:", JSON.stringify(req.body, null, 2));
+
+      // STEP 1: Validate webhook signature
+      console.log("\n[QB Webhook] 🔐 STEP 1: Validate Webhook Signature");
       const isValidSignature = validateQBWebhookSignature(req);
       if (!isValidSignature) {
-        console.error("[QB Webhook] ❌ SIGNATURE VALIDATION FAILED");
+        console.error("[QB Webhook] ❌ SIGNATURE VALIDATION FAILED - REJECTING WEBHOOK");
         return res.status(401).json({ error: "Invalid signature" });
       }
-      console.log("[QB Webhook] ✅ Signature validated");
+      console.log("[QB Webhook] ✅ Signature validated successfully");
 
       // Acknowledge receipt immediately (HTTP 200)
       res.status(200).json({ status: "received" });
 
-      // Parse QB event
+      // STEP 2: Parse QB event
+      console.log("\n[QB Webhook] 📋 STEP 2: Parse Event Type and Entities");
       const eventType = req.body.eventType;
       const entities = req.body.entities || [];
       const webhookEventId = req.body.id;
 
-      // Only process Invoice.Change events
+      console.log(`[QB Webhook]   - Event Type: ${eventType}`);
+      console.log(`[QB Webhook]   - Event ID: ${webhookEventId}`);
+      console.log(`[QB Webhook]   - Total Entities: ${entities.length}`);
+
+      // STEP 3: Check event type support
+      console.log("\n[QB Webhook] 🔍 STEP 3: Check Event Type Support");
       if (eventType !== "Invoice.Change") {
-        console.log(`[QB Webhook] Ignoring event type: ${eventType}`);
+        console.log(`[QB Webhook] ⏭️ UNSUPPORTED EVENT TYPE: "${eventType}"`);
+        console.log(`[QB Webhook]   Supported types: Invoice.Change, Payment.Change, SalesReceipt.Change`);
+        console.log(`[QB Webhook]   Action: Skipping webhook processing`);
         return;
       }
+      console.log(`[QB Webhook] ✅ Event type "${eventType}" is supported`);
 
-      console.log(`[QB Webhook] Processing ${entities.length} entities`);
+      // STEP 4: Process entities
+      console.log(`\n[QB Webhook] 🔄 STEP 4: Process ${entities.length} Entities`);
+      
+      for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        console.log(`\n[QB Webhook] ┌─ Entity ${i + 1}/${entities.length}`);
+        console.log(`[QB Webhook] │  Entity Type: ${entity.name}`);
+        console.log(`[QB Webhook] │  Entity ID: ${entity.id}`);
+        console.log(`[QB Webhook] │  Full Entity: ${JSON.stringify(entity, null, 2)}`);
 
-      // Process each invoice entity
-      for (const entity of entities) {
-        if (entity.name === "Invoice") {
-          try {
-            console.log(`[QB Webhook] 📋 Processing invoice ID: ${entity.id}`);
+        // Only process Invoice entities
+        if (entity.name !== "Invoice") {
+          console.log(`[QB Webhook] │  ⏭️ SKIPPING: Not an Invoice entity (type: ${entity.name})`);
+          console.log(`[QB Webhook] └─ Entity ${i + 1} skipped`);
+          continue;
+        }
 
-            // Fetch full invoice details from QB API
-            const lookupResult = await lookupQBInvoice(entity.id);
-            
-            if (!lookupResult.found || !lookupResult.invoice) {
-              console.warn(`[QB Webhook] ⚠️ Invoice not found: ${entity.id}`);
-              continue;
-            }
+        console.log(`[QB Webhook] │  ✅ Invoice entity detected`);
 
-            const invoice = lookupResult.invoice;
-            console.log(`[QB Webhook] 📄 Invoice Number: ${invoice.DocNumber}`);
-            console.log(`[QB Webhook] 💰 Amount: ${invoice.TotalAmt}`);
-            console.log(`[QB Webhook] 💳 Balance: ${invoice.Balance}`);
-            console.log(`[QB Webhook] 👤 Customer: ${invoice.CustomerRef?.name}`);
-
-            // Only process PAID invoices (Balance = 0)
-            if (lookupResult.status !== "paid") {
-              console.log(`[QB Webhook] ⏭️ Invoice not paid yet (status: ${lookupResult.status}), skipping`);
-              continue;
-            }
-
-            console.log(`[QB Webhook] ✅ Invoice is PAID - processing payment`);
-
-            // Extract invoice details
-            const customerId = invoice.CustomerRef?.value;
-            const invoiceNumber = invoice.DocNumber;
-            const amount = invoice.TotalAmt;
-
-            // Fetch REAL customer data from QB (including mobile phone)
-            console.log(`[QB Webhook] 📞 Fetching real customer data from QB...`);
-            const customer = await fetchQBCustomer(customerId);
-            
-            if (!customer) {
-              console.error(`[QB Webhook] ❌ Could not fetch customer details for ID: ${customerId}`);
-              continue;
-            }
-
-            // Use REAL customer mobile phone (not fallback)
-            const customerPhone = customer.Mobile || customer.PrimaryPhone;
-            if (!customerPhone) {
-              console.error(`[QB Webhook] ❌ Customer has no mobile or primary phone number`);
-              console.error(`[QB Webhook]   Customer ID: ${customerId}`);
-              console.error(`[QB Webhook]   Customer Name: ${customer.DisplayName}`);
-              continue;
-            }
-
-            const customerName = customer.DisplayName;
-
-            console.log(`[QB Webhook] ✅ Real QB Customer Data:`);
-            console.log(`[QB Webhook]   - QB Customer Name: ${customerName}`);
-            console.log(`[QB Webhook]   - QB Mobile: ${customerPhone}`);
-            console.log(`[QB Webhook]   - Invoice Number: ${invoiceNumber}`);
-            console.log(`[QB Webhook]   - Amount: ${amount} KD`);
-            console.log(`[QB Webhook]   - Twilio Destination: whatsapp:+${customerPhone.replace(/\D/g, "")}`);
-
-            // Trigger rewards engine (processes payment, calculates points, sends WhatsApp)
-            console.log(`[QB Webhook] 🎯 Triggering rewards engine...`);
-            const result = await processQbPaymentEvent({
-              qbInvoiceId: entity.id,
-              invoiceNumber,
-              customerPhone,
-              customerName,
-              amount,
-              webhookEventId,
-            });
-
-            console.log(`[QB Webhook] 🎁 Rewards Engine Result:`, JSON.stringify(result, null, 2));
-
-            if (result.status === "success") {
-              console.log(`[QB Webhook] ✅ PAYMENT PROCESSED SUCCESSFULLY`);
-              if ("pointsAdded" in result) {
-                console.log(`[QB Webhook]   - Points Added: ${result.pointsAdded}`);
-                console.log(`[QB Webhook]   - Customer ID: ${result.customerId}`);
-              } else if ("pointsPending" in result) {
-                console.log(`[QB Webhook]   - Points Pending: ${result.pointsPending}`);
-                console.log(`[QB Webhook]   - Pending Reward ID: ${result.pendingRewardId}`);
-              }
-            } else {
-              console.error(`[QB Webhook] ❌ PAYMENT PROCESSING FAILED:`, result.error);
-            }
-          } catch (entityErr: any) {
-            console.error(`[QB Webhook] ❌ Error processing entity ${entity.id}:`, entityErr?.message);
+        try {
+          // STEP 5: Fetch invoice from QB API
+          console.log(`[QB Webhook] │\n[QB Webhook] │  🔍 STEP 5: Fetch Invoice from QB API`);
+          console.log(`[QB Webhook] │    Invoice ID: ${entity.id}`);
+          
+          const lookupResult = await lookupQBInvoice(entity.id);
+          
+          if (!lookupResult.found || !lookupResult.invoice) {
+            console.error(`[QB Webhook] │    ❌ INVOICE NOT FOUND in QB`);
+            console.error(`[QB Webhook] │    Invoice ID: ${entity.id}`);
+            console.log(`[QB Webhook] └─ Entity ${i + 1} skipped (invoice not found)`);
+            continue;
           }
+
+          const invoice = lookupResult.invoice;
+          console.log(`[QB Webhook] │    ✅ Invoice fetched successfully`);
+          console.log(`[QB Webhook] │    - Invoice Number: ${invoice.DocNumber}`);
+          console.log(`[QB Webhook] │    - Total Amount: ${invoice.TotalAmt}`);
+          console.log(`[QB Webhook] │    - Balance: ${invoice.Balance}`);
+          console.log(`[QB Webhook] │    - Status: ${lookupResult.status}`);
+          console.log(`[QB Webhook] │    - Customer Ref: ${JSON.stringify(invoice.CustomerRef)}`);
+
+          // STEP 6: Check payment status
+          console.log(`[QB Webhook] │\n[QB Webhook] │  💳 STEP 6: Check Payment Status`);
+          console.log(`[QB Webhook] │    Status: ${lookupResult.status}`);
+          
+          if (lookupResult.status !== "paid") {
+            console.log(`[QB Webhook] │    ⏭️ INVOICE NOT PAID - SKIPPING`);
+            console.log(`[QB Webhook] │    Expected: paid, Got: ${lookupResult.status}`);
+            console.log(`[QB Webhook] └─ Entity ${i + 1} skipped (not paid)`);
+            continue;
+          }
+
+          console.log(`[QB Webhook] │    ✅ Invoice is PAID - proceeding with payment processing`);
+
+          // STEP 7: Extract invoice details
+          console.log(`[QB Webhook] │\n[QB Webhook] │  📄 STEP 7: Extract Invoice Details`);
+          const customerId = invoice.CustomerRef?.value;
+          const invoiceNumber = invoice.DocNumber;
+          const amount = invoice.TotalAmt;
+
+          console.log(`[QB Webhook] │    - Customer ID: ${customerId}`);
+          console.log(`[QB Webhook] │    - Invoice Number: ${invoiceNumber}`);
+          console.log(`[QB Webhook] │    - Amount: ${amount}`);
+
+          // STEP 8: Fetch customer from QB
+          console.log(`[QB Webhook] │\n[QB Webhook] │  👤 STEP 8: Fetch Customer from QB API`);
+          console.log(`[QB Webhook] │    Customer ID: ${customerId}`);
+          
+          const customer = await fetchQBCustomer(customerId);
+          
+          if (!customer) {
+            console.error(`[QB Webhook] │    ❌ CUSTOMER NOT FOUND in QB`);
+            console.error(`[QB Webhook] │    Customer ID: ${customerId}`);
+            console.log(`[QB Webhook] └─ Entity ${i + 1} skipped (customer not found)`);
+            continue;
+          }
+
+          console.log(`[QB Webhook] │    ✅ Customer fetched successfully`);
+          console.log(`[QB Webhook] │    - Display Name: ${customer.DisplayName}`);
+          console.log(`[QB Webhook] │    - Mobile: ${customer.Mobile}`);
+          console.log(`[QB Webhook] │    - Primary Phone: ${customer.PrimaryPhone}`);
+
+          // STEP 9: Extract mobile phone
+          console.log(`[QB Webhook] │\n[QB Webhook] │  📞 STEP 9: Extract Mobile Phone`);
+          const customerPhone = customer.Mobile || customer.PrimaryPhone;
+          
+          if (!customerPhone) {
+            console.error(`[QB Webhook] │    ❌ NO PHONE NUMBER FOUND`);
+            console.error(`[QB Webhook] │    Customer: ${customer.DisplayName}`);
+            console.error(`[QB Webhook] │    Customer ID: ${customerId}`);
+            console.error(`[QB Webhook] │    Mobile field: ${customer.Mobile}`);
+            console.error(`[QB Webhook] │    PrimaryPhone field: ${customer.PrimaryPhone}`);
+            console.log(`[QB Webhook] │    Action: ABORTING - Cannot send WhatsApp without phone`);
+            console.log(`[QB Webhook] └─ Entity ${i + 1} skipped (no phone)`);
+            continue;
+          }
+
+          const customerName = customer.DisplayName;
+          const normalizedPhone = customerPhone.replace(/\D/g, "");
+
+          console.log(`[QB Webhook] │    ✅ Phone extracted successfully`);
+          console.log(`[QB Webhook] │    - Raw Phone: ${customerPhone}`);
+          console.log(`[QB Webhook] │    - Normalized: +${normalizedPhone}`);
+          console.log(`[QB Webhook] │    - Twilio Destination: whatsapp:+${normalizedPhone}`);
+
+          // STEP 10: Trigger rewards engine
+          console.log(`[QB Webhook] │\n[QB Webhook] │  🎯 STEP 10: Trigger Rewards Engine`);
+          console.log(`[QB Webhook] │    Customer: ${customerName}`);
+          console.log(`[QB Webhook] │    Phone: +${normalizedPhone}`);
+          console.log(`[QB Webhook] │    Invoice: ${invoiceNumber}`);
+          console.log(`[QB Webhook] │    Amount: ${amount}`);
+          
+          const result = await processQbPaymentEvent({
+            qbInvoiceId: entity.id,
+            invoiceNumber,
+            customerPhone,
+            customerName,
+            amount,
+            webhookEventId,
+          });
+
+          console.log(`[QB Webhook] │    Rewards Engine Result:`, JSON.stringify(result, null, 2));
+
+          // STEP 11: Check rewards result
+          console.log(`[QB Webhook] │\n[QB Webhook] │  🎁 STEP 11: Process Rewards Result`);
+          
+          if (result.status === "success") {
+            console.log(`[QB Webhook] │    ✅ PAYMENT PROCESSED SUCCESSFULLY`);
+            if ("pointsAdded" in result) {
+              console.log(`[QB Webhook] │    - Points Added: ${result.pointsAdded}`);
+              console.log(`[QB Webhook] │    - Customer ID: ${result.customerId}`);
+              console.log(`[QB Webhook] │    - WhatsApp Sent: Yes`);
+            } else if ("pointsPending" in result) {
+              console.log(`[QB Webhook] │    - Points Pending: ${result.pointsPending}`);
+              console.log(`[QB Webhook] │    - Pending Reward ID: ${result.pendingRewardId}`);
+              console.log(`[QB Webhook] │    - Reason: Customer not registered yet`);
+            }
+          } else {
+            console.error(`[QB Webhook] │    ❌ PAYMENT PROCESSING FAILED`);
+            console.error(`[QB Webhook] │    Error: ${result.error}`);
+          }
+
+          // STEP 12: Twilio send confirmation
+          console.log(`[QB Webhook] │\n[QB Webhook] │  📤 STEP 12: Twilio Send Confirmation`);
+          if (result.status === "success") {
+            console.log(`[QB Webhook] │    ✅ WhatsApp template sent to whatsapp:+${normalizedPhone}`);
+            console.log(`[QB Webhook] │    - ContentSid: reward_test`);
+            console.log(`[QB Webhook] │    - Destination: +${normalizedPhone}`);
+            console.log(`[QB Webhook] │    - Customer: ${customerName}`);
+          } else {
+            console.error(`[QB Webhook] │    ❌ WhatsApp send failed or pending`);
+          }
+
+          console.log(`[QB Webhook] └─ Entity ${i + 1} processed successfully\n`);
+
+        } catch (entityErr: any) {
+          console.error(`[QB Webhook] │  ❌ EXCEPTION DURING ENTITY PROCESSING`);
+          console.error(`[QB Webhook] │  Entity ID: ${entity.id}`);
+          console.error(`[QB Webhook] │  Error Message: ${entityErr?.message}`);
+          console.error(`[QB Webhook] │  Stack Trace:`, entityErr?.stack);
+          console.log(`[QB Webhook] └─ Entity ${i + 1} failed with exception\n`);
         }
       }
 
-      console.log("[QB Webhook] ========================================\n");
+      console.log("[QB Webhook] ════════════════════════════════════════════════════════");
+      console.log("[QB Webhook] ✅ WEBHOOK EXECUTION COMPLETED");
+      console.log("[QB Webhook] ════════════════════════════════════════════════════════\n");
+
     } catch (error: any) {
-      console.error("[QB Webhook] ❌ WEBHOOK ERROR:", error?.message);
-      console.error("[QB Webhook] Stack:", error?.stack);
+      console.error("[QB Webhook] ════════════════════════════════════════════════════════");
+      console.error("[QB Webhook] ❌ CRITICAL WEBHOOK ERROR");
+      console.error("[QB Webhook] ════════════════════════════════════════════════════════");
+      console.error("[QB Webhook] Error Message:", error?.message);
+      console.error("[QB Webhook] Stack Trace:", error?.stack);
+      console.error("[QB Webhook] ════════════════════════════════════════════════════════\n");
+      
       // Still return 200 to acknowledge to Intuit
       res.status(200).json({ status: "error", message: String(error) });
     }
