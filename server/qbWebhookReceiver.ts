@@ -12,14 +12,14 @@ function validateQBWebhookSignature(req: Request): boolean {
   const verificationToken = process.env.QB_WEBHOOK_VERIFICATION_TOKEN;
 
   if (!verificationToken) {
-    console.warn("[QB Webhook] ⚠️  QB_WEBHOOK_VERIFICATION_TOKEN not set — skipping signature check");
-    return true; // allow through so we can at least log the payload
+    console.error("[QB Webhook] ❌ QB_WEBHOOK_VERIFICATION_TOKEN not set — rejecting webhook");
+    return false;
   }
 
   const signature = req.headers["intuit-signature"] as string | undefined;
   if (!signature) {
-    console.warn("[QB Webhook] ⚠️  Missing intuit-signature header — skipping signature check");
-    return true; // QB sometimes omits this on first delivery; allow through
+    console.error("[QB Webhook] ❌ Missing intuit-signature header — rejecting webhook");
+    return false;
   }
 
   // rawBody is populated by the express.json verify callback in _core/index.ts
@@ -117,13 +117,19 @@ export function registerQbWebhookReceiver(app: Express) {
           for (const entity of entities) {
             console.log(`\n[QB Webhook] ── Entity: name=${entity.name}  id=${entity.id}  op=${entity.operation}`);
 
-            // We care about Invoice entities with Create or Update operations
-            if (entity.name !== "Invoice") {
-              console.log(`[QB Webhook]   ⏭️  Skipping non-Invoice entity (${entity.name})`);
-              continue;
+            // QB sends payment events as Payment, Invoice, or SalesReceipt.
+            // Previously only Invoice was handled — Payment and SalesReceipt were silently skipped.
+            if (entity.name === "Invoice") {
+              await processInvoiceEntity(entity.id, realmId);
+            } else if (entity.name === "Payment") {
+              console.log(`[QB Webhook]   💳 Payment entity — resolving linked invoice`);
+              await processPaymentEntity(entity.id, realmId);
+            } else if (entity.name === "SalesReceipt") {
+              console.log(`[QB Webhook]   🧾 SalesReceipt entity — processing directly`);
+              await processSalesReceiptEntity(entity.id, realmId);
+            } else {
+              console.log(`[QB Webhook]   ⏭️  Skipping unrelated entity type: ${entity.name}`);
             }
-
-            await processInvoiceEntity(entity.id, realmId);
           }
         }
 
@@ -266,6 +272,141 @@ async function processInvoiceEntity(invoiceId: string, realmId: string) {
 
   } catch (err: any) {
     console.error(`[QB Webhook] ❌ Error processing invoice ${invoiceId}:`, err?.message);
+    console.error(`[QB Webhook] Stack:`, err?.stack);
+  }
+}
+
+/**
+ * Handle a QB Payment entity.
+ * A Payment in QB links to one or more invoices via Line[].LinkedTxn[].
+ * We fetch the payment, resolve every linked Invoice, then process each paid one.
+ */
+async function processPaymentEntity(paymentId: string, realmId: string) {
+  console.log(`\n[QB Webhook] 💳 Fetching Payment ${paymentId} from QB API (realm: ${realmId})`);
+  try {
+    const { getValidAccessToken, getQBRealmId } = await import("./quickbooks");
+    const { ENV } = await import("./_core/env");
+
+    const accessToken = await getValidAccessToken();
+    const resolvedRealmId = await getQBRealmId();
+    const baseUrl =
+      ENV.qbEnvironment === "production"
+        ? "https://quickbooks.api.intuit.com"
+        : "https://sandbox-quickbooks.api.intuit.com";
+
+    const safeId = paymentId.replace(/['"\\]/g, "");
+    const url = `${baseUrl}/v3/company/${resolvedRealmId}/payment/${safeId}?minorversion=65`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      console.error(`[QB Webhook] ❌ Payment ${paymentId} fetch failed: HTTP ${res.status}`);
+      return;
+    }
+
+    const data = await res.json();
+    const payment = data?.Payment ?? data;
+    console.log(`[QB Webhook] ✅ Payment fetched: TotalAmt=${payment.TotalAmt}  CustomerRef=${JSON.stringify(payment.CustomerRef)}`);
+    console.log(`[QB Webhook]   Full Payment object: ${JSON.stringify(data, null, 2)}`);
+
+    // Extract linked Invoice IDs from Line[].LinkedTxn[]
+    const linkedInvoiceIds: string[] = [];
+    const lines: any[] = payment.Line ?? [];
+    for (const line of lines) {
+      const linked: any[] = line.LinkedTxn ?? [];
+      for (const txn of linked) {
+        if (txn.TxnType === "Invoice") {
+          linkedInvoiceIds.push(txn.TxnId);
+          console.log(`[QB Webhook]   🔗 Linked Invoice: ${txn.TxnId}`);
+        }
+      }
+    }
+
+    if (linkedInvoiceIds.length === 0) {
+      console.warn(`[QB Webhook] ⚠️  Payment ${paymentId} has no linked invoices — skipping`);
+      return;
+    }
+
+    for (const invoiceId of linkedInvoiceIds) {
+      console.log(`[QB Webhook]   ↳ Processing linked Invoice ${invoiceId}`);
+      await processInvoiceEntity(invoiceId, realmId);
+    }
+  } catch (err: any) {
+    console.error(`[QB Webhook] ❌ Error processing Payment ${paymentId}:`, err?.message);
+    console.error(`[QB Webhook] Stack:`, err?.stack);
+  }
+}
+
+/**
+ * Handle a QB SalesReceipt entity.
+ * SalesReceipts are self-contained paid transactions (no separate payment step).
+ * We fetch the receipt, extract CustomerRef + TotalAmt, and trigger rewards directly.
+ */
+async function processSalesReceiptEntity(receiptId: string, realmId: string) {
+  console.log(`\n[QB Webhook] 🧾 Fetching SalesReceipt ${receiptId} from QB API (realm: ${realmId})`);
+  try {
+    const { getValidAccessToken, getQBRealmId, fetchQBCustomer } = await import("./quickbooks");
+    const { ENV } = await import("./_core/env");
+
+    const accessToken = await getValidAccessToken();
+    const resolvedRealmId = await getQBRealmId();
+    const baseUrl =
+      ENV.qbEnvironment === "production"
+        ? "https://quickbooks.api.intuit.com"
+        : "https://sandbox-quickbooks.api.intuit.com";
+
+    const safeId = receiptId.replace(/['"\\]/g, "");
+    const url = `${baseUrl}/v3/company/${resolvedRealmId}/salesreceipt/${safeId}?minorversion=65`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
+    });
+
+    if (!res.ok) {
+      console.error(`[QB Webhook] ❌ SalesReceipt ${receiptId} fetch failed: HTTP ${res.status}`);
+      return;
+    }
+
+    const data = await res.json();
+    const receipt = data?.SalesReceipt ?? data;
+    console.log(`[QB Webhook] ✅ SalesReceipt fetched:`);
+    console.log(`[QB Webhook]   DocNumber   : ${receipt.DocNumber}`);
+    console.log(`[QB Webhook]   TotalAmt    : ${receipt.TotalAmt}`);
+    console.log(`[QB Webhook]   CustomerRef : ${JSON.stringify(receipt.CustomerRef)}`);
+    console.log(`[QB Webhook]   Full object : ${JSON.stringify(data, null, 2)}`);
+
+    const customerId = receipt.CustomerRef?.value;
+    if (!customerId) {
+      console.error(`[QB Webhook] ❌ SalesReceipt ${receiptId} has no CustomerRef.value`);
+      return;
+    }
+
+    const customer = await fetchQBCustomer(customerId);
+    if (!customer) {
+      console.error(`[QB Webhook] ❌ Customer ${customerId} not found for SalesReceipt ${receiptId}`);
+      return;
+    }
+
+    const rawPhone = (customer.Mobile || customer.PrimaryPhone) as string | undefined;
+    if (!rawPhone) {
+      console.error(`[QB Webhook] ❌ No phone for customer "${customer.DisplayName}" — aborting`);
+      return;
+    }
+
+    console.log(`[QB Webhook] 🎯 Triggering rewards engine for SalesReceipt ${receiptId}`);
+    const result = await processQbPaymentEvent({
+      qbInvoiceId: `SR-${receiptId}`,
+      invoiceNumber: receipt.DocNumber ?? receiptId,
+      customerPhone: rawPhone,
+      customerName: customer.DisplayName,
+      amount: receipt.TotalAmt,
+    });
+
+    console.log(`[QB Webhook] SalesReceipt rewards result: ${JSON.stringify(result, null, 2)}`);
+  } catch (err: any) {
+    console.error(`[QB Webhook] ❌ Error processing SalesReceipt ${receiptId}:`, err?.message);
     console.error(`[QB Webhook] Stack:`, err?.stack);
   }
 }

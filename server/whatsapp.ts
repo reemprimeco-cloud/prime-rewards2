@@ -34,8 +34,8 @@ export interface WhatsAppTemplateParams {
  * Handles: +965XXXXXXXX, 00965XXXXXXXX, 965XXXXXXXX, 0XXXXXXXX, XXXXXXXX
  * Removes spaces, dashes, and parentheses.
  */
-export function normalisePhone(raw: string): string {
-  if (!raw) return "";
+export function normalisePhone(raw: string): string | null {
+  if (!raw) return null;
   
   // Remove spaces, dashes, parentheses
   let p = raw.replace(/[\s\-()]/g, "");
@@ -50,17 +50,22 @@ export function normalisePhone(raw: string): string {
     p = p.slice(2);
   }
   
-  // Remove leading 0 (local format)
+  // Remove leading 0 (local format like 065068000)
   if (p.startsWith("0") && !p.startsWith("965")) {
     p = p.slice(1);
   }
   
-  // If doesn't start with 965, add it
-  if (!p.startsWith("965")) {
+  // If bare 8-digit Kuwait number (no country code), prepend 965
+  if (!p.startsWith("965") && p.length === 8) {
     p = "965" + p;
   }
   
-  // Return in E.164 format
+  // Must be Kuwait: starts with 965 and exactly 11 digits
+  if (!p.startsWith("965") || p.length !== 11 || !/^\d{11}$/.test(p)) {
+    console.error(`[WhatsApp] ❌ Rejecting non-Kuwait or invalid phone: "${raw}" → "${p}"`);
+    return null;
+  }
+  
   return "+" + p;
 }
 
@@ -86,21 +91,27 @@ export async function sendWhatsAppTemplate(
   }
 
   const normalised = normalisePhone(toPhone);
+  if (!normalised) {
+    console.error(`[WhatsApp] ❌ Invalid phone number, aborting send: "${toPhone}"`);
+    return { success: false, error: `Invalid phone number: ${toPhone}` };
+  }
   const to = normalised.startsWith("whatsapp:") ? normalised : `whatsapp:${normalised}`;
 
   try {
     const credentials = Buffer.from(`${sid}:${token}`).toString("base64");
     
-    // Build template body with Messaging Service SID
+    // Build ContentVariables as a SINGLE JSON object: { "1": val1, "2": val2, ... }
+    // MUST NOT use .append() — Twilio rejects multiple ContentVariables parameters
+    const contentVars: Record<string, string> = {};
+    Object.entries(templateParams).forEach(([_key, value], index) => {
+      contentVars[String(index + 1)] = value;
+    });
+
     const bodyParams = new URLSearchParams({
       MessagingServiceSid: messagingServiceSid,
       To: to,
-      ContentSid: templateName, // Twilio template SID or name (reward_test)
-    });
-    
-    // Add template parameters
-    Object.entries(templateParams).forEach(([key, value], index) => {
-      bodyParams.append(`ContentVariables`, JSON.stringify({ [index + 1]: value }));
+      ContentSid: templateName,
+      ContentVariables: JSON.stringify(contentVars),
     });
 
     const response = await fetch(

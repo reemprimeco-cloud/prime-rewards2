@@ -63,14 +63,14 @@ describe("QB Template-Based Automation", () => {
       expect(result).toBe("+96550001234");
     });
 
-    it("should handle short phone by adding 965 prefix", () => {
+    it("should reject short phone (not 11 digits)", () => {
       const result = normalisePhone("123");
-      expect(result).toBe("+965123");
+      expect(result).toBeNull();
     });
 
-    it("should handle non-Kuwait phone by adding 965 prefix", () => {
+    it("should reject non-Kuwait phone numbers", () => {
       const result = normalisePhone("+1234567890");
-      expect(result).toBe("+9651234567890");
+      expect(result).toBeNull();
     });
 
     it("should handle phone with leading zeros", () => {
@@ -82,7 +82,5 @@ describe("QB Template-Based Automation", () => {
       const result = normalisePhone("+ 965 5000 1234");
       expect(result).toBe("+96550001234");
     });
-
-
   });
 });
