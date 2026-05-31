@@ -732,15 +732,18 @@ export async function logWhatsApp(data: {
   const db = await getDb();
   if (!db) return null;
   const result = await db.insert(whatsappLogs).values({
-    customerId: data.customerId,
+    customerId: data.customerId || undefined,
     phone: data.phone,
     messageType: data.messageType,
     messageBody: data.messageBody,
-    invoiceId: data.invoiceId,
+    invoiceId: data.invoiceId || undefined,
     status: data.status ?? "pending",
-    messageSid: data.messageSid,
-    errorMessage: data.errorMessage,
+    messageSid: data.messageSid || undefined,
+    errorMessage: data.errorMessage || undefined,
     sentAt: data.status === "sent" ? new Date() : undefined,
+    deliveredAt: undefined,
+    twilioResponse: undefined,
+    retryCount: 0,
   });
   return (result as any).insertId ?? null;
 }
