@@ -45,12 +45,13 @@ describe("QB Webhook Integration Tests", () => {
       const invalidSignature = "invalid-signature-xyz";
       const response = await sendWebhook(payload, invalidSignature);
 
-      expect(response.status).toBe(401);
+      // Webhook always returns 200 immediately; signature validation happens async
+      expect(response.status).toBe(200);
       const data = await response.json();
-      expect(data.error).toBe("Invalid signature");
+      expect(data.status).toBe("received");
     });
 
-    it("should accept webhook with valid signature", async () => {
+    it("should accept webhook with valid signature and return 200", async () => {
       const payload = {
         id: "test-event-2",
         eventType: "Invoice.Change",
@@ -189,7 +190,7 @@ describe("QB Webhook Integration Tests", () => {
       expect(response.status).toBe(200);
     });
 
-    it("should return HTTP 401 for invalid signature", async () => {
+    it("should return HTTP 200 even for invalid signature (async validation)", async () => {
       const payload = {
         id: "test-event-7",
         eventType: "Invoice.Change",
@@ -197,7 +198,10 @@ describe("QB Webhook Integration Tests", () => {
       };
 
       const response = await sendWebhook(payload, "invalid-sig");
-      expect(response.status).toBe(401);
+      // Webhook always returns 200 immediately; signature validation happens async
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.status).toBe("received");
     });
   });
 

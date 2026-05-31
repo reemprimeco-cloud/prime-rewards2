@@ -1,6 +1,6 @@
 import { Express, Request, Response } from "express";
 import { processQbPaymentEvent } from "./qbRewardsEngine";
-import { lookupQBInvoice, fetchQBCustomer } from "./quickbooks";
+import { lookupQBInvoiceById, fetchQBCustomer } from "./quickbooks";
 import crypto from "crypto";
 
 /**
@@ -70,7 +70,7 @@ export function registerQbWebhookReceiver(app: Express) {
     // ✅ CRITICAL: Always respond 200 immediately so Intuit doesn't retry or mark as failed
     // Do NOT wait for processing — move all heavy work to async background
     console.log("[QB Webhook] 📤 Responding HTTP 200 OK immediately");
-    res.status(200).json({ received: true });
+    res.status(200).json({ status: "received" });
 
     // ✅ Process webhook asynchronously in background (fire-and-forget)
     // This prevents blocking the HTTP response and allows Intuit to consider delivery successful
@@ -180,7 +180,7 @@ async function processInvoiceEntity(invoiceId: string, realmId: string) {
 
   try {
     // ── Fetch invoice ────────────────────────────────────────────────────
-    const lookupResult = await lookupQBInvoice(invoiceId);
+    const lookupResult = await lookupQBInvoiceById(invoiceId);
 
     if (!lookupResult.found || !lookupResult.invoice) {
       console.error(`[QB Webhook] ❌ Invoice ${invoiceId} not found in QB`);

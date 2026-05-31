@@ -1,10 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 import { processQbPaymentEvent, claimPendingRewards, processPendingWhatsAppQueue } from "./qbRewardsEngine";
 
-// Mock the sendWhatsApp function
+// Mock the sendWhatsApp functions
 vi.mock("./whatsapp", () => ({
   sendWhatsApp: vi.fn(async (phone: string, message: string) => {
-    // Simulate success for valid phones
+    if (phone.includes("+965")) {
+      return { success: true, messageSid: `SM_${Date.now()}` };
+    }
+    return { success: false, error: "Invalid phone" };
+  }),
+  sendWhatsAppTemplate: vi.fn(async (phone: string, templateName: string, params: Record<string, string>) => {
     if (phone.includes("+965")) {
       return { success: true, messageSid: `SM_${Date.now()}` };
     }
