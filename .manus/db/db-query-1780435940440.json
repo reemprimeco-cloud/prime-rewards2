@@ -1,0 +1,24 @@
+{
+  "query": "SELECT id, qbInvoiceId, invoiceNumber, customerPhone, customerName, amount, pointsCalculated, status, customerId, errorMessage, processedAt, createdAt FROM qb_payment_syncs WHERE status IN ('failed', 'pending') ORDER BY createdAt DESC LIMIT 1",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, qbInvoiceId, invoiceNumber, customerPhone, customerName, amount, pointsCalculated, status, customerId, errorMessage, processedAt, createdAt FROM qb_payment_syncs WHERE status IN ('failed', 'pending') ORDER BY createdAt DESC LIMIT 1",
+  "rows": [
+    {
+      "id": "510001",
+      "qbInvoiceId": "verify-001",
+      "invoiceNumber": "TEST",
+      "customerPhone": "whatsapp:+96565068000",
+      "customerName": "Reem Alfaraj",
+      "amount": "30.00",
+      "pointsCalculated": "3",
+      "status": "pending",
+      "customerId": "NULL",
+      "errorMessage": "NULL",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-02 16:58:31"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tqbInvoiceId\tinvoiceNumber\tcustomerPhone\tcustomerName\tamount\tpointsCalculated\tstatus\tcustomerId\terrorMessage\tprocessedAt\tcreatedAt\n510001\tverify-001\tTEST\twhatsapp:+96565068000\tReem Alfaraj\t30.00\t3\tpending\tNULL\tNULL\tNULL\t2026-06-02 16:58:31\n",
+  "stderr": "",
+  "execution_time_ms": 5014
+}

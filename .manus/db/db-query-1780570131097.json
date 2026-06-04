@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, phone, pointsEarned, invoiceNumber, status FROM pending_rewards WHERE invoiceNumber = '2517-final' ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, phone, pointsEarned, invoiceNumber, status FROM pending_rewards WHERE invoiceNumber = '2517-final' ORDER BY id DESC LIMIT 1;",
+  "rows": [
+    {
+      "id": "570005",
+      "phone": "whatsapp:+96597696466",
+      "pointsEarned": "1000",
+      "invoiceNumber": "2517-final",
+      "status": "pending"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tphone\tpointsEarned\tinvoiceNumber\tstatus\n570005\twhatsapp:+96597696466\t1000\t2517-final\tpending\n",
+  "stderr": "",
+  "execution_time_ms": 1910
+}

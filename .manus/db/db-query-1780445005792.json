@@ -1,0 +1,14 @@
+{
+  "query": "SELECT qbInvoiceId, customerPhone FROM qb_payment_syncs WHERE qbInvoiceId='cache-clear-test'",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT qbInvoiceId, customerPhone FROM qb_payment_syncs WHERE qbInvoiceId='cache-clear-test'",
+  "rows": [
+    {
+      "qbInvoiceId": "cache-clear-test",
+      "customerPhone": "whatsapp:+96565068000"
+    }
+  ],
+  "messages": [],
+  "stdout": "qbInvoiceId\tcustomerPhone\ncache-clear-test\twhatsapp:+96565068000\n",
+  "stderr": "",
+  "execution_time_ms": 1683
+}

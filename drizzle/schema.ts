@@ -2,7 +2,6 @@ import {
   boolean,
   decimal,
   int,
-  json,
   mysqlEnum,
   mysqlTable,
   text,
@@ -10,6 +9,7 @@ import {
   varchar,
   bigint,
   float,
+  json,
 } from "drizzle-orm/mysql-core";
 
 // ─── Core Auth User ────────────────────────────────────────────────────────────
@@ -60,7 +60,6 @@ export const invoices = mysqlTable("invoices", {
   rejectionReason: text("rejectionReason"),
   campaignId: int("campaignId"),
   multiplierApplied: float("multiplierApplied").default(1).notNull(),
-  source: mysqlEnum("source", ["manual", "quickbooks", "woocommerce"]).default("manual").notNull(),
   submittedAt: timestamp("submittedAt").defaultNow().notNull(),
   reviewedAt: timestamp("reviewedAt"),
   reviewedBy: int("reviewedBy"),
@@ -206,7 +205,6 @@ export const qbSettings = mysqlTable("qb_settings", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
-
 export type QBSettings = typeof qbSettings.$inferSelect;
 
 // ─── WhatsApp Logs ─────────────────────────────────────────────────────────────
@@ -216,111 +214,17 @@ export const whatsappLogs = mysqlTable("whatsapp_logs", {
   phone: varchar("phone", { length: 32 }).notNull(),
   messageType: mysqlEnum("messageType", ["points_awarded", "welcome", "tier_upgrade", "reward_redeemed", "expiry_warning", "spin_win", "manual"]).notNull(),
   messageBody: text("messageBody").notNull(),
-  status: mysqlEnum("status", ["sent", "failed", "pending", "retrying", "delivered", "read"]).default("pending").notNull(),
+  status: mysqlEnum("status", ["sent", "failed", "pending", "retrying"]).default("pending").notNull(),
   messageSid: varchar("messageSid", { length: 64 }).unique(),
   errorMessage: text("errorMessage"),
   retryCount: int("retryCount").default(0).notNull(),
   invoiceId: int("invoiceId"),
-  sentAt: timestamp("sentAt"),
-  deliveredAt: timestamp("deliveredAt"),
-  twilioResponse: text("twilioResponse"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
-
 export type WhatsappLog = typeof whatsappLogs.$inferSelect;
 export type InsertWhatsappLog = typeof whatsappLogs.$inferInsert;
 
-// ─── Failed Attempts ───────────────────────────────────────────────────────────
-export const failedAttempts = mysqlTable("failed_attempts", {
-  id: int("id").autoincrement().primaryKey(),
-  customerId: int("customerId"),
-  ipAddress: varchar("ipAddress", { length: 64 }),
-  attemptType: mysqlEnum("attemptType", ["invoice_not_found", "duplicate_invoice", "amount_mismatch", "phone_mismatch", "rate_limit"]).notNull(),
-  invoiceNumber: varchar("invoiceNumber", { length: 64 }),
-  details: text("details"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type FailedAttempt = typeof failedAttempts.$inferSelect;
-export type InsertFailedAttempt = typeof failedAttempts.$inferInsert;
-
-// ─── Suspicious Accounts ──────────────────────────────────────────────────────
-export const suspiciousAccounts = mysqlTable("suspicious_accounts", {
-  id: int("id").autoincrement().primaryKey(),
-  customerId: int("customerId").notNull().unique(),
-  reason: text("reason").notNull(),
-  failedAttemptCount: int("failedAttemptCount").default(0).notNull(),
-  isBlocked: boolean("isBlocked").default(false).notNull(),
-  blockedAt: timestamp("blockedAt"),
-  blockedBy: int("blockedBy"),
-  reviewedAt: timestamp("reviewedAt"),
-  reviewedBy: int("reviewedBy"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-
-export type SuspiciousAccount = typeof suspiciousAccounts.$inferSelect;
-export type InsertSuspiciousAccount = typeof suspiciousAccounts.$inferInsert;
-
-// ─── Pending Customers ─────────────────────────────────────────────────────────
-export const pendingCustomers = mysqlTable("pending_customers", {
-  id: int("id").autoincrement().primaryKey(),
-  phone: varchar("phone", { length: 32 }).notNull().unique(),
-  fullName: varchar("fullName", { length: 255 }),
-  pendingPoints: int("pendingPoints").default(0).notNull(),
-  invoiceNumbers: text("invoiceNumbers"), // JSON array of invoice numbers
-  mergedToCustomerId: int("mergedToCustomerId"),
-  mergedAt: timestamp("mergedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type PendingCustomer = typeof pendingCustomers.$inferSelect;
-export type InsertPendingCustomer = typeof pendingCustomers.$inferInsert;
-
-// ─── Invoice Registry (Admin-managed source of truth) ─────────────────────────
-// Admins add real invoices here. The auto-approval engine matches submitted
-// invoices against this table using invoiceNumber + customerPhone.
-export const invoiceRegistry = mysqlTable("invoice_registry", {
-  id: int("id").autoincrement().primaryKey(),
-  invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull().unique(),
-  customerPhone: varchar("customerPhone", { length: 32 }).notNull(),
-  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  invoiceDate: timestamp("invoiceDate"),
-  customerName: varchar("customerName", { length: 255 }),
-  notes: text("notes"),
-  isUsed: boolean("isUsed").default(false).notNull(),
-  usedAt: timestamp("usedAt"),
-  usedByInvoiceId: int("usedByInvoiceId"),
-  createdBy: int("createdBy"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-export type InvoiceRegistry = typeof invoiceRegistry.$inferSelect;
-export type InsertInvoiceRegistry = typeof invoiceRegistry.$inferInsert;
-
-
-// ─── WhatsApp Messages (Twilio delivery tracking) ────────────────────────────
-export const whatsappMessages = mysqlTable("whatsapp_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  invoiceId: int("invoiceId").notNull(),
-  customerId: int("customerId").notNull(),
-  customerPhone: varchar("customerPhone", { length: 32 }).notNull(),
-  messageType: varchar("messageType", { length: 64 }).notNull(), // "invoice_approved"
-  templateSid: varchar("templateSid", { length: 255 }),
-  twilio_sid: varchar("twilio_sid", { length: 255 }), // Twilio message SID
-  status: mysqlEnum("status", ["pending", "sent", "delivered", "failed", "retrying"]).default("pending").notNull(),
-  retryCount: int("retryCount").default(0).notNull(),
-  maxRetries: int("maxRetries").default(3).notNull(),
-  errorMessage: text("errorMessage"),
-  sentAt: timestamp("sentAt"),
-  deliveredAt: timestamp("deliveredAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
-export type WhatsappMessage = typeof whatsappMessages.$inferSelect;
-export type InsertWhatsappMessage = typeof whatsappMessages.$inferInsert;
-
-// ─── QB Payment Syncs (Track processed QB payments) ──────────────────────────
+// ─── QB Payment Syncs ──────────────────────────────────────────────────────────
 export const qbPaymentSyncs = mysqlTable("qb_payment_syncs", {
   id: int("id").autoincrement().primaryKey(),
   qbInvoiceId: varchar("qbInvoiceId", { length: 255 }).notNull(),
@@ -330,7 +234,7 @@ export const qbPaymentSyncs = mysqlTable("qb_payment_syncs", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   pointsCalculated: int("pointsCalculated").notNull(),
   status: mysqlEnum("status", ["pending", "success", "failed", "duplicate"]).default("pending").notNull(),
-  customerId: int("customerId"), // null if customer not yet registered
+  customerId: int("customerId"),
   errorMessage: text("errorMessage"),
   webhookEventId: varchar("webhookEventId", { length: 255 }),
   processedAt: timestamp("processedAt"),
@@ -339,7 +243,7 @@ export const qbPaymentSyncs = mysqlTable("qb_payment_syncs", {
 export type QbPaymentSync = typeof qbPaymentSyncs.$inferSelect;
 export type InsertQbPaymentSync = typeof qbPaymentSyncs.$inferInsert;
 
-// ─── Pending Rewards (For customers not yet registered) ─────────────────────
+// ─── Pending Rewards ──────────────────────────────────────────────────────────
 export const pendingRewards = mysqlTable("pending_rewards", {
   id: int("id").autoincrement().primaryKey(),
   phone: varchar("phone", { length: 32 }).notNull(),
@@ -349,25 +253,10 @@ export const pendingRewards = mysqlTable("pending_rewards", {
   pointsEarned: int("pointsEarned").notNull(),
   message: text("message"),
   status: mysqlEnum("status", ["pending", "claimed", "expired"]).default("pending").notNull(),
-  customerId: int("customerId"), // populated when customer signs up
+  customerId: int("customerId"),
   claimedAt: timestamp("claimedAt"),
   expiresAt: timestamp("expiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type PendingReward = typeof pendingRewards.$inferSelect;
 export type InsertPendingReward = typeof pendingRewards.$inferInsert;
-
-// ─── QB Webhook Events (Log all QB events) ────────────────────────────────
-export const qbWebhookEvents = mysqlTable("qb_webhook_events", {
-  id: int("id").autoincrement().primaryKey(),
-  eventId: varchar("eventId", { length: 255 }).notNull().unique(),
-  eventType: varchar("eventType", { length: 64 }).notNull(), // "Invoice.Change", "Payment.Create", etc.
-  realmId: varchar("realmId", { length: 255 }).notNull(),
-  payload: json("payload"),
-  processed: boolean("processed").default(false).notNull(),
-  processedAt: timestamp("processedAt"),
-  error: text("error"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-export type QbWebhookEvent = typeof qbWebhookEvents.$inferSelect;
-export type InsertQbWebhookEvent = typeof qbWebhookEvents.$inferInsert;

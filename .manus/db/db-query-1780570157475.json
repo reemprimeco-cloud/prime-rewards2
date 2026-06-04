@@ -1,0 +1,14 @@
+{
+  "query": "SELECT customerPhone, status FROM qb_payment_syncs WHERE qbInvoiceId='prefix-final-2';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT customerPhone, status FROM qb_payment_syncs WHERE qbInvoiceId='prefix-final-2';",
+  "rows": [
+    {
+      "customerPhone": "+96597696466",
+      "status": "pending"
+    }
+  ],
+  "messages": [],
+  "stdout": "customerPhone\tstatus\n+96597696466\tpending\n",
+  "stderr": "",
+  "execution_time_ms": 1766
+}

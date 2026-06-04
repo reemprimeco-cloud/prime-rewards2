@@ -1,0 +1,19 @@
+{
+  "query": "SELECT id, phone, messageType, status, messageSid, errorMessage, createdAt FROM whatsapp_logs WHERE createdAt > DATE_SUB(NOW(), INTERVAL 2 MINUTE) ORDER BY createdAt DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, phone, messageType, status, messageSid, errorMessage, createdAt FROM whatsapp_logs WHERE createdAt > DATE_SUB(NOW(), INTERVAL 2 MINUTE) ORDER BY createdAt DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "720001",
+      "phone": "whatsapp:+96565068000",
+      "messageType": "points_awarded",
+      "status": "failed",
+      "messageSid": "NULL",
+      "errorMessage": "Invalid phone number: whatsapp:+96565068000",
+      "createdAt": "2026-06-02 23:43:33"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tphone\tmessageType\tstatus\tmessageSid\terrorMessage\tcreatedAt\n720001\twhatsapp:+96565068000\tpoints_awarded\tfailed\tNULL\tInvalid phone number: whatsapp:+96565068000\t2026-06-02 23:43:33\n",
+  "stderr": "",
+  "execution_time_ms": 1603
+}

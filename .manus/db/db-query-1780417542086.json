@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, realmId, LEFT(accessToken,12) AS token_prefix, expiresAt, createdAt FROM qb_settings",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, realmId, LEFT(accessToken,12) AS token_prefix, expiresAt, createdAt FROM qb_settings",
+  "rows": [
+    {
+      "id": "1",
+      "realmId": "9130357945907536",
+      "token_prefix": "eyJhbGciOiJk",
+      "expiresAt": "2026-06-02 11:54:03",
+      "createdAt": "2026-05-23 22:42:46"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\trealmId\ttoken_prefix\texpiresAt\tcreatedAt\n1\t9130357945907536\teyJhbGciOiJk\t2026-06-02 11:54:03\t2026-05-23 22:42:46\n",
+  "stderr": "",
+  "execution_time_ms": 3133
+}

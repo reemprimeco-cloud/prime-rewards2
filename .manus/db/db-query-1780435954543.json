@@ -1,0 +1,34 @@
+{
+  "query": "SELECT id, customerId, phone, messageType, messageBody, status, messageSid, errorMessage, invoiceId, createdAt FROM whatsapp_logs WHERE phone = '+96565068000' OR invoiceId = 510001 ORDER BY createdAt DESC LIMIT 5",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, customerId, phone, messageType, messageBody, status, messageSid, errorMessage, invoiceId, createdAt FROM whatsapp_logs WHERE phone = '+96565068000' OR invoiceId = 510001 ORDER BY createdAt DESC LIMIT 5",
+  "rows": [
+    {
+      "id": "600001",
+      "customerId": "1",
+      "phone": "+96565068000",
+      "messageType": "points_awarded",
+      "messageBody": "reward_test | Reem Alfaraj | +10 pts | INV-002",
+      "status": "sent",
+      "messageSid": "MM8aa9d1ef596a5dc1ed610ee0e3c1747b",
+      "errorMessage": "NULL",
+      "invoiceId": "2",
+      "createdAt": "2026-06-01 14:04:51"
+    },
+    {
+      "id": "540001",
+      "customerId": "1",
+      "phone": "+96565068000",
+      "messageType": "points_awarded",
+      "messageBody": "reward_test | Test | +10 pts | INV-001",
+      "status": "failed",
+      "messageSid": "NULL",
+      "errorMessage": "HTTP 400",
+      "invoiceId": "1",
+      "createdAt": "2026-06-01 13:34:10"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcustomerId\tphone\tmessageType\tmessageBody\tstatus\tmessageSid\terrorMessage\tinvoiceId\tcreatedAt\n600001\t1\t+96565068000\tpoints_awarded\treward_test | Reem Alfaraj | +10 pts | INV-002\tsent\tMM8aa9d1ef596a5dc1ed610ee0e3c1747b\tNULL\t2\t2026-06-01 14:04:51\n540001\t1\t+96565068000\tpoints_awarded\treward_test | Test | +10 pts | INV-001\tfailed\tNULL\tHTTP 400\t1\t2026-06-01 13:34:10\n",
+  "stderr": "",
+  "execution_time_ms": 1564
+}

@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE qb_payment_syncs \nSET customerPhone = REPLACE(customerPhone, 'whatsapp:', '') \nWHERE customerPhone LIKE 'whatsapp:%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute UPDATE qb_payment_syncs \nSET customerPhone = REPLACE(customerPhone, 'whatsapp:', '') \nWHERE customerPhone LIKE 'whatsapp:%';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1752
+}

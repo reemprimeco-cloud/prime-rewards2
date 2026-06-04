@@ -39,7 +39,7 @@ export function normalizeKuwaitPhone(phone: string): string | null {
     return null;
   }
   
-  return `whatsapp:+${normalized}`;
+  return `+${normalized}`;
 }
 
 /**

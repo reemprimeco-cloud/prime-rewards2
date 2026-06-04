@@ -4,13 +4,11 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
-import { registerQBRoutes } from "../qbRoutes";
 import { registerStorageProxy } from "./storageProxy";
-import { registerTwilioWebhookRoutes } from "../twilioWebhook";
-import { registerQbWebhookReceiver } from "../qbWebhookReceiver";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
+import { registerQbWebhookReceiver } from "../qbWebhookReceiver";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -34,21 +32,15 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-  
   // Configure body parser with larger size limit for file uploads
-  // Use verify callback to capture raw body for webhook signature validation
-  // This avoids stream conflicts by reading the body only once
+  // rawBody capture required for QB webhook HMAC signature validation
   app.use(express.json({
     limit: "50mb",
-    verify: (req: any, _res, buf) => {
-      req.rawBody = buf.toString("utf8");
-    }
+    verify: (req: any, _res, buf) => { req.rawBody = buf.toString("utf8"); },
   }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
-  registerQBRoutes(app);
-  registerTwilioWebhookRoutes(app);
   registerQbWebhookReceiver(app);
   // tRPC API
   app.use(

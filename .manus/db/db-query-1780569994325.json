@@ -1,0 +1,18 @@
+{
+  "query": "SELECT id, phone, pointsEarned, invoiceNumber, status, createdAt FROM pending_rewards WHERE invoiceNumber = '2517-v2' ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, phone, pointsEarned, invoiceNumber, status, createdAt FROM pending_rewards WHERE invoiceNumber = '2517-v2' ORDER BY id DESC LIMIT 1;",
+  "rows": [
+    {
+      "id": "570003",
+      "phone": "whatsapp:+96597696466",
+      "pointsEarned": "1000",
+      "invoiceNumber": "2517-v2",
+      "status": "pending",
+      "createdAt": "2026-06-04 10:46:28"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tphone\tpointsEarned\tinvoiceNumber\tstatus\tcreatedAt\n570003\twhatsapp:+96597696466\t1000\t2517-v2\tpending\t2026-06-04 10:46:28\n",
+  "stderr": "",
+  "execution_time_ms": 1780
+}

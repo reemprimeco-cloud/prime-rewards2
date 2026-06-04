@@ -1,0 +1,150 @@
+{
+  "query": "SELECT id, phone, messageType, status, createdAt FROM whatsapp_logs WHERE phone LIKE 'whatsapp:%' LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, phone, messageType, status, createdAt FROM whatsapp_logs WHERE phone LIKE 'whatsapp:%' LIMIT 20;",
+  "rows": [
+    {
+      "id": "150001",
+      "phone": "whatsapp:+96550001234",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:26"
+    },
+    {
+      "id": "150002",
+      "phone": "whatsapp:+96550002345",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:27"
+    },
+    {
+      "id": "150003",
+      "phone": "whatsapp:+96550003456",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:29"
+    },
+    {
+      "id": "150004",
+      "phone": "whatsapp:+96550004567",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:30"
+    },
+    {
+      "id": "150005",
+      "phone": "whatsapp:+96550005678",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:32"
+    },
+    {
+      "id": "150008",
+      "phone": "whatsapp:+96550011234",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:38"
+    },
+    {
+      "id": "150009",
+      "phone": "whatsapp:+96550011234",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:39"
+    },
+    {
+      "id": "150010",
+      "phone": "whatsapp:+96550011234",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:09:40"
+    },
+    {
+      "id": "150013",
+      "phone": "whatsapp:+96550001234",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:02"
+    },
+    {
+      "id": "150014",
+      "phone": "whatsapp:+96550002345",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:04"
+    },
+    {
+      "id": "150015",
+      "phone": "whatsapp:+96550003456",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:05"
+    },
+    {
+      "id": "150016",
+      "phone": "whatsapp:+96550004567",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:06"
+    },
+    {
+      "id": "150017",
+      "phone": "whatsapp:+96550005678",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:08"
+    },
+    {
+      "id": "150020",
+      "phone": "whatsapp:+96550011234",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:12"
+    },
+    {
+      "id": "150021",
+      "phone": "whatsapp:+96550012345",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:13"
+    },
+    {
+      "id": "150022",
+      "phone": "whatsapp:+96550013456",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:14"
+    },
+    {
+      "id": "150023",
+      "phone": "whatsapp:+96550001234",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:40"
+    },
+    {
+      "id": "150024",
+      "phone": "whatsapp:+96550002345",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:42"
+    },
+    {
+      "id": "150025",
+      "phone": "whatsapp:+96550003456",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:43"
+    },
+    {
+      "id": "150026",
+      "phone": "whatsapp:+96550004567",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "createdAt": "2026-05-27 21:11:44"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tphone\tmessageType\tstatus\tcreatedAt\n150001\twhatsapp:+96550001234\tpoints_awarded\tsent\t2026-05-27 21:09:26\n150002\twhatsapp:+96550002345\tpoints_awarded\tsent\t2026-05-27 21:09:27\n150003\twhatsapp:+96550003456\tpoints_awarded\tsent\t2026-05-27 21:09:29\n150004\twhatsapp:+96550004567\tpoints_awarded\tsent\t2026-05-27 21:09:30\n150005\twhatsapp:+96550005678\tpoints_awarded\tsent\t2026-05-27 21:09:32\n150008\twhatsapp:+96550011234\tpoints_awarded\tsent\t2026-05-27 21:09:38\n150009\twhatsapp:+96550011234\tpoints_awarded\tsent\t2026-05-27 21:09:39\n150010\twhatsapp:+96550011234\tpoints_awarded\tsent\t2026-05-27 21:09:40\n150013\twhatsapp:+96550001234\tpoints_awarded\tsent\t2026-05-27 21:11:02\n150014\twhatsapp:+96550002345\tpoints_awarded\tsent\t2026-05-27 21:11:04\n150015\twhatsapp:+96550003456\tpoints_awarded\tsent\t2026-05-27 21:11:05\n150016\twhatsapp:+96550004567\tpoints_awarded\tsent\t2026-05-27 21:11:06\n150017\twhatsapp:+96550005678\tpoints_awarded\tsent\t2026-05-27 21:11:08\n150020\twhatsapp:+96550011234\tpoints_awarded\tsent\t2026-05-27 21:11:12\n150021\twhatsapp:+96550012345\tpoints_awarded\tsent\t2026-05-27 21:11:13\n150022\twhatsapp:+96550013456\tpoints_awarded\tsent\t2026-05-27 21:11:14\n150023\twhatsapp:+96550001234\tpoints_awarded\tsent\t2026-05-27 21:11:40\n150024\twhatsapp:+96550002345\tpoints_awarded\tsent\t2026-05-27 21:11:42\n150025\twhatsapp:+96550003456\tpoints_awarded\tsent\t2026-05-27 21:11:43\n150026\twhatsapp:+96550004567\tpoints_awarded\tsent\t2026-05-27 21:11:44\n",
+  "stderr": "",
+  "execution_time_ms": 1900
+}

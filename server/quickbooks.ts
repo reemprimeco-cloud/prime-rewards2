@@ -1,97 +1,22 @@
-/**
- * QuickBooks Online API integration helper
- * Handles OAuth token management and invoice lookup/validation.
- * Tokens are persisted in the qb_settings DB table and cached in memory.
- */
-
 import { ENV } from "./_core/env";
 import { getDb } from "./db";
 import { desc } from "drizzle-orm";
 import { qbSettings } from "../drizzle/schema";
 
 const QB_BASE_URLS = {
-  sandbox: "https://sandbox-quickbooks.api.intuit.com",
+  sandbox:    "https://sandbox-quickbooks.api.intuit.com",
   production: "https://quickbooks.api.intuit.com",
 };
 
-const QB_AUTH_URL = "https://appcenter.intuit.com/connect/oauth2";
 const QB_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
 
-// ─── OAuth ──────────────────────────────────────────────────────────────────
+// ─── Token cache ──────────────────────────────────────────────────────────────
 
-/** Generate the QuickBooks OAuth 2.0 authorization URL */
-export function getQBAuthUrl(state: string): string {
-  const params = new URLSearchParams({
-    client_id: ENV.qbClientId,
-    redirect_uri: ENV.qbRedirectUri,
-    response_type: "code",
-    scope: "com.intuit.quickbooks.accounting",
-    state,
-  });
-  return `${QB_AUTH_URL}?${params.toString()}`;
-}
-
-/** Exchange authorization code for access + refresh tokens */
-export async function exchangeQBCode(code: string): Promise<{
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-}> {
-  const credentials = Buffer.from(`${ENV.qbClientId}:${ENV.qbClientSecret}`).toString("base64");
-  const res = await fetch(QB_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: ENV.qbRedirectUri,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`QB token exchange failed: ${res.status} ${text}`);
-  }
-  return res.json();
-}
-
-/** Refresh the access token using the stored refresh token */
-export async function refreshQBToken(refreshToken: string): Promise<{
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-}> {
-  const credentials = Buffer.from(`${ENV.qbClientId}:${ENV.qbClientSecret}`).toString("base64");
-  const res = await fetch(QB_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`QB token refresh failed: ${res.status} ${text}`);
-  }
-  return res.json();
-}
-
-// ─── Token store (in-memory cache + DB persistence) ─────────────────────────
-
-let _cachedAccessToken: string | null = null;
-let _cachedTokenExpiry: number = 0;
-let _cachedRealmId: string | null = null;
+let _cachedAccessToken:  string | null = null;
+let _cachedTokenExpiry:  number        = 0;
 let _cachedRefreshToken: string | null = null;
+let _cachedRealmId:      string | null = null;
 
-/** Load QB settings from DB into memory cache (called on first use) */
 async function loadQBSettingsFromDB(): Promise<void> {
   try {
     const db = await getDb();
@@ -99,112 +24,81 @@ async function loadQBSettingsFromDB(): Promise<void> {
     const rows = await db.select().from(qbSettings).orderBy(desc(qbSettings.updatedAt)).limit(1);
     if (rows.length > 0) {
       const row = rows[0];
-      _cachedRealmId = row.realmId;
+      _cachedRealmId      = row.realmId;
       _cachedRefreshToken = row.refreshToken;
       if (row.accessToken && row.expiresAt && row.expiresAt.getTime() > Date.now() + 60_000) {
         _cachedAccessToken = row.accessToken;
         _cachedTokenExpiry = row.expiresAt.getTime();
       }
     }
-  } catch {
-    // Silently fail — will fall back to env vars
-  }
+  } catch {}
 }
 
-/** Persist new tokens to DB */
-async function saveQBTokensToDB(
-  realmId: string,
-  accessToken: string,
-  refreshToken: string,
-  expiresIn: number
-): Promise<void> {
+async function saveQBTokensToDB(realmId: string, accessToken: string, refreshToken: string, expiresIn: number): Promise<void> {
   try {
     const db = await getDb();
     if (!db) return;
     const expiresAt = new Date(Date.now() + expiresIn * 1000);
-    await db
-      .insert(qbSettings)
-      .values({ realmId, accessToken, refreshToken, expiresAt })
+    await db.insert(qbSettings).values({ realmId, accessToken, refreshToken, expiresAt })
       .onDuplicateKeyUpdate({ set: { realmId, accessToken, refreshToken, expiresAt } });
   } catch (err) {
-    console.warn("[QB] Failed to persist tokens to DB:", err);
+    console.warn("[QB] Failed to persist tokens:", err);
   }
 }
 
-/** Get the current realm ID (from cache, DB, or env) */
 export async function getQBRealmId(): Promise<string> {
   if (_cachedRealmId) return _cachedRealmId;
   await loadQBSettingsFromDB();
   if (_cachedRealmId) return _cachedRealmId;
-  // Fall back to env var
-  const envRealmId = ENV.qbRealmId;
-  if (envRealmId) {
-    _cachedRealmId = envRealmId;
-    return envRealmId;
-  }
+  if (ENV.qbRealmId) { _cachedRealmId = ENV.qbRealmId; return ENV.qbRealmId; }
   throw new Error("QuickBooks Realm ID not configured.");
 }
 
-/** Get a valid access token, refreshing if necessary */
 export async function getValidAccessToken(): Promise<string> {
   const now = Date.now();
+  if (_cachedAccessToken && _cachedTokenExpiry > now + 60_000) return _cachedAccessToken;
+  if (!_cachedRefreshToken) await loadQBSettingsFromDB();
 
-  // Return cached token if still valid (with 60s buffer)
-  if (_cachedAccessToken && _cachedTokenExpiry > now + 60_000) {
-    return _cachedAccessToken;
-  }
-
-  // Load from DB if not yet loaded
-  if (!_cachedRefreshToken) {
-    await loadQBSettingsFromDB();
-  }
-
-  // Use env var refresh token as final fallback
   const refreshToken = _cachedRefreshToken || ENV.qbRefreshToken;
-  if (!refreshToken) {
-    throw new Error("QuickBooks not connected. Please complete OAuth setup in Admin Settings.");
-  }
+  if (!refreshToken) throw new Error("QuickBooks not connected. Complete OAuth setup in Admin Settings.");
 
   const realmId = _cachedRealmId || ENV.qbRealmId;
-  if (!realmId) {
-    throw new Error("QuickBooks Realm ID not configured.");
-  }
+  if (!realmId) throw new Error("QuickBooks Realm ID not configured.");
 
   try {
-    const tokens = await refreshQBToken(refreshToken);
-    _cachedAccessToken = tokens.access_token;
-    _cachedTokenExpiry = now + tokens.expires_in * 1000;
+    const res = await fetch(QB_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${ENV.qbClientId}:${ENV.qbClientSecret}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken }),
+    });
+    if (!res.ok) { const t = await res.text(); throw new Error(`QB token refresh failed: ${res.status} ${t}`); }
+    const tokens = await res.json() as { access_token: string; refresh_token: string; expires_in: number };
+    _cachedAccessToken  = tokens.access_token;
+    _cachedTokenExpiry  = now + tokens.expires_in * 1000;
     _cachedRefreshToken = tokens.refresh_token;
-    _cachedRealmId = realmId;
-
-    // Persist updated tokens
+    _cachedRealmId      = realmId;
     await saveQBTokensToDB(realmId, tokens.access_token, tokens.refresh_token, tokens.expires_in);
-
     return _cachedAccessToken;
   } catch (err: any) {
-    // Detect expired/revoked refresh token — guide admin to re-authorize
     const msg: string = err?.message ?? "";
     if (msg.includes("invalid_grant") || msg.includes("400")) {
-      // Clear stale cached tokens so next call tries fresh
-      _cachedAccessToken = null;
-      _cachedTokenExpiry = 0;
-      _cachedRefreshToken = null;
-      throw new Error(
-        "QB_TOKEN_EXPIRED: Your QuickBooks authorization has expired or been revoked. " +
-        "Please go to Admin → Settings → QuickBooks Integration and click \"Re-authorize QuickBooks\" to reconnect."
-      );
+      _cachedAccessToken = null; _cachedTokenExpiry = 0; _cachedRefreshToken = null;
+      throw new Error("QB_TOKEN_EXPIRED: Please re-authorize QuickBooks in Admin Settings.");
     }
     throw err;
   }
 }
 
-// ─── Invoice Lookup ──────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface QBInvoice {
   Id: string;
   DocNumber: string;
   TxnDate: string;
-  DueDate?: string;
   TotalAmt: number;
   Balance: number;
   CustomerRef: { value: string; name: string };
@@ -213,272 +107,139 @@ export interface QBInvoice {
 export interface QBCustomer {
   Id: string;
   DisplayName: string;
-  // QB API returns phone as { FreeFormNumber: "..." } objects, not plain strings
   PrimaryPhone?: { FreeFormNumber?: string } | string;
   Mobile?: { FreeFormNumber?: string } | string;
-  Email?: string;
-  BillAddr?: {
-    City?: string;
-    CountrySubDivisionCode?: string;
-    PostalCode?: string;
-  };
 }
 
 export type QBInvoiceStatus = "paid" | "unpaid" | "partial" | "not_found";
 
 export interface QBInvoiceLookupResult {
-  tokenExpired?: boolean;
   found: boolean;
   status: QBInvoiceStatus;
   invoice?: QBInvoice;
   customerName?: string;
   totalAmount?: number;
   errorMessage?: string;
+  tokenExpired?: boolean;
 }
 
-/** Fetch customer details from QB API including mobile phone */
+// ─── Customer fetch ───────────────────────────────────────────────────────────
+
 export async function fetchQBCustomer(customerId: string): Promise<QBCustomer | null> {
   try {
-    const accessToken = await getValidAccessToken();
+    const token   = await getValidAccessToken();
     const realmId = await getQBRealmId();
-    const baseUrl = QB_BASE_URLS[ENV.qbEnvironment];
+    const base    = QB_BASE_URLS[ENV.qbEnvironment];
+    const safeId  = customerId.replace(/['"\\]/g, "");
+    const query   = `SELECT * FROM Customer WHERE Id = '${safeId}'`;
+    const url     = `${base}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=65`;
 
-    const safeId = customerId.replace(/['"\\]/g, "");
-    const query = `SELECT * FROM Customer WHERE Id = '${safeId}'`;
-    const url = `${baseUrl}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=65`;
-
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-      },
-    });
-
-    if (!res.ok) {
-      console.warn(`[QB] Failed to fetch customer ${customerId}: ${res.status}`);
-      return null;
-    }
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (!res.ok) { console.warn(`[QB] Customer ${customerId}: ${res.status}`); return null; }
 
     const data = await res.json();
-    console.log(`[QB] Full QB API Response for customer ${customerId}:`, JSON.stringify(data, null, 2));
-    const customers: QBCustomer[] = data?.QueryResponse?.Customer ?? [];
+    const raw  = data?.QueryResponse?.Customer?.[0];
+    if (!raw) { console.warn(`[QB] Customer ${customerId} not found`); return null; }
 
-    if (customers.length === 0) {
-      console.warn(`[QB] Customer not found: ${customerId}`);
-      return null;
-    }
-
-    const rawCustomer = customers[0];
-    console.log(`[QB] Fetched QB Customer Object:`, JSON.stringify(rawCustomer, null, 2));
-
-    // Normalise phone fields: QB returns { FreeFormNumber: "..." } objects
-    const extractPhone = (field: any): string | undefined => {
-      if (!field) return undefined;
-      if (typeof field === "string") return field || undefined;
-      if (typeof field === "object" && field.FreeFormNumber) return field.FreeFormNumber;
-      return undefined;
+    const extractPhone = (f: any): string | undefined => {
+      if (!f) return undefined;
+      if (typeof f === "string") return f || undefined;
+      return f?.FreeFormNumber || undefined;
     };
 
-    const customer: QBCustomer = {
-      ...rawCustomer,
-      Mobile: extractPhone(rawCustomer.Mobile),
-      PrimaryPhone: extractPhone(rawCustomer.PrimaryPhone),
-    };
-
-    console.log(`[QB] Customer DisplayName  : ${customer.DisplayName}`);
-    console.log(`[QB] Customer Mobile       : ${customer.Mobile}`);
-    console.log(`[QB] Customer PrimaryPhone : ${customer.PrimaryPhone}`);
+    const customer: QBCustomer = { ...raw, Mobile: extractPhone(raw.Mobile), PrimaryPhone: extractPhone(raw.PrimaryPhone) };
+    console.log(`[QB] Customer: ${customer.DisplayName}  Mobile=${customer.Mobile}  Primary=${customer.PrimaryPhone}`);
     return customer;
   } catch (err: any) {
-    console.error(`[QB] Error fetching customer ${customerId}:`, err?.message);
+    console.error(`[QB] Customer fetch error: ${err?.message}`);
     return null;
   }
 }
 
-/** Look up an invoice by QB entity ID (from webhook) */
+// ─── Invoice lookup by entity ID (from webhook) ───────────────────────────────
+
 export async function lookupQBInvoiceById(invoiceId: string): Promise<QBInvoiceLookupResult> {
   try {
-    const accessToken = await getValidAccessToken();
+    const token   = await getValidAccessToken();
     const realmId = await getQBRealmId();
-    const baseUrl = QB_BASE_URLS[ENV.qbEnvironment];
+    const base    = QB_BASE_URLS[ENV.qbEnvironment];
+    const safeId  = invoiceId.replace(/['^\\]/g, "");
+    const url     = `${base}/v3/company/${realmId}/invoice/${safeId}?minorversion=65`;
 
-    // QB entity ID is numeric, fetch directly by ID
-    const safeId = invoiceId.replace(/['^\\]/g, "");
-    const url = `${baseUrl}/v3/company/${realmId}/invoice/${safeId}?minorversion=65`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (res.status === 404) return { found: false, status: "not_found" };
+    if (!res.ok) { const t = await res.text(); throw new Error(`QB API ${res.status}: ${t}`); }
 
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-      },
-    });
-
-    if (!res.ok) {
-      if (res.status === 404) {
-        return { found: false, status: "not_found" };
-      }
-      const text = await res.text();
-      throw new Error(`QB API error: ${res.status} ${text}`);
-    }
-
-    const inv = await res.json();
-    console.log(`[QB] Fetched invoice by ID ${invoiceId}:`, JSON.stringify(inv, null, 2));
-    let status: QBInvoiceStatus;
-
-    if (inv.Balance === 0) {
-      status = "paid";
-    } else if (inv.Balance < inv.TotalAmt) {
-      status = "partial";
-    } else {
-      status = "unpaid";
-    }
-
-    return {
-      found: true,
-      status,
-      invoice: inv,
-      customerName: inv.CustomerRef?.name,
-      totalAmount: inv.TotalAmt,
-    };
+    const data = await res.json();
+    const inv: QBInvoice = data.Invoice ?? data;
+    const status: QBInvoiceStatus = inv.Balance === 0 ? "paid" : inv.Balance < inv.TotalAmt ? "partial" : "unpaid";
+    console.log(`[QB] Invoice ${invoiceId}: DocNumber=${inv.DocNumber}  Balance=${inv.Balance}  status=${status}`);
+    return { found: true, status, invoice: inv, customerName: inv.CustomerRef?.name, totalAmount: inv.TotalAmt };
   } catch (err: any) {
-    console.error(`[QB] Invoice lookup by ID error:`, err?.message);
-    const isTokenExpired = (err?.message ?? "").includes("QB_TOKEN_EXPIRED");
-    return {
-      found: false,
-      status: "not_found",
-      tokenExpired: isTokenExpired,
-      errorMessage: err?.message,
-    };
+    console.error(`[QB] Invoice by ID error: ${err?.message}`);
+    return { found: false, status: "not_found", errorMessage: err?.message, tokenExpired: (err?.message ?? "").includes("QB_TOKEN_EXPIRED") };
   }
 }
 
-/** Look up an invoice by document number in QuickBooks */
+// ─── Invoice lookup by DocNumber (kept for other callers) ─────────────────────
+
 export async function lookupQBInvoice(invoiceNumber: string): Promise<QBInvoiceLookupResult> {
   try {
-    const accessToken = await getValidAccessToken();
+    const token   = await getValidAccessToken();
     const realmId = await getQBRealmId();
-    const baseUrl = QB_BASE_URLS[ENV.qbEnvironment];
-
-    // Sanitise input to prevent injection
+    const base    = QB_BASE_URLS[ENV.qbEnvironment];
     const safeNum = invoiceNumber.replace(/['"\\]/g, "");
-    const query = `SELECT * FROM Invoice WHERE DocNumber = '${safeNum}' MAXRESULTS 1`;
-    const url = `${baseUrl}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=65`;
+    const query   = `SELECT * FROM Invoice WHERE DocNumber = '${safeNum}' MAXRESULTS 1`;
+    const url     = `${base}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}&minorversion=65`;
 
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-      },
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`QB API error: ${res.status} ${text}`);
-    }
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (!res.ok) { const t = await res.text(); throw new Error(`QB API ${res.status}: ${t}`); }
 
     const data = await res.json();
     const invoices: QBInvoice[] = data?.QueryResponse?.Invoice ?? [];
-
-    if (invoices.length === 0) {
-      return { found: false, status: "not_found" };
-    }
+    if (invoices.length === 0) return { found: false, status: "not_found" };
 
     const inv = invoices[0];
-    let status: QBInvoiceStatus;
-
-    if (inv.Balance === 0) {
-      status = "paid";
-    } else if (inv.Balance < inv.TotalAmt) {
-      status = "partial";
-    } else {
-      status = "unpaid";
-    }
-
-    return {
-      found: true,
-      status,
-      invoice: inv,
-      customerName: inv.CustomerRef?.name,
-      totalAmount: inv.TotalAmt,
-    };
+    const status: QBInvoiceStatus = inv.Balance === 0 ? "paid" : inv.Balance < inv.TotalAmt ? "partial" : "unpaid";
+    return { found: true, status, invoice: inv, customerName: inv.CustomerRef?.name, totalAmount: inv.TotalAmt };
   } catch (err: any) {
     console.error("[QB] Invoice lookup error:", err?.message);
-    const isTokenExpired = (err?.message ?? "").includes("QB_TOKEN_EXPIRED");
-    return {
-      found: false,
-      status: "not_found",
-      errorMessage: isTokenExpired
-        ? err.message
-        : (err?.message ?? "Unknown error looking up invoice"),
-      tokenExpired: isTokenExpired,
-    };
+    const tokenExpired = (err?.message ?? "").includes("QB_TOKEN_EXPIRED");
+    return { found: false, status: "not_found", errorMessage: err?.message, tokenExpired };
   }
 }
 
-/** Look up invoices by customer phone number in QuickBooks */
+// ─── Invoice lookup by phone (kept for other callers) ─────────────────────────
+
 export async function lookupQBInvoiceByPhone(phone: string): Promise<QBInvoiceLookupResult[]> {
   try {
-    const accessToken = await getValidAccessToken();
+    const token   = await getValidAccessToken();
     const realmId = await getQBRealmId();
-    const baseUrl = QB_BASE_URLS[ENV.qbEnvironment];
+    const base    = QB_BASE_URLS[ENV.qbEnvironment];
+    const safePhone = phone.replace(/[\s\-().+'"\\]/g, "");
+    const cQuery  = `SELECT * FROM Customer WHERE PrimaryPhone = '${safePhone}' OR Mobile = '${safePhone}' MAXRESULTS 5`;
+    const cUrl    = `${base}/v3/company/${realmId}/query?query=${encodeURIComponent(cQuery)}&minorversion=65`;
 
-    // Normalize phone: strip spaces, dashes, parens, leading +
-    const normalizedPhone = phone.replace(/[\s\-().+]/g, "");
+    const cRes = await fetch(cUrl, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (!cRes.ok) { const t = await cRes.text(); throw new Error(`QB API ${cRes.status}: ${t}`); }
+    const cData = await cRes.json();
+    const customers = cData?.QueryResponse?.Customer ?? [];
+    if (customers.length === 0) return [];
 
-    // Step 1: Find customers matching this phone
-    const safePhone = normalizedPhone.replace(/['"\\]/g, "");
-    const customerQuery = `SELECT * FROM Customer WHERE PrimaryPhone = '${safePhone}' OR Mobile = '${safePhone}' MAXRESULTS 5`;
-    const customerUrl = `${baseUrl}/v3/company/${realmId}/query?query=${encodeURIComponent(customerQuery)}&minorversion=65`;
-
-    const customerRes = await fetch(customerUrl, {
-      headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
-    });
-
-    if (!customerRes.ok) {
-      const text = await customerRes.text();
-      throw new Error(`QB API error: ${customerRes.status} ${text}`);
-    }
-
-    const customerData = await customerRes.json();
-    const customers = customerData?.QueryResponse?.Customer ?? [];
-
-    if (customers.length === 0) {
-      return [];
-    }
-
-    // Step 2: For each matching customer, find their unpaid/recent invoices
     const results: QBInvoiceLookupResult[] = [];
-
     for (const customer of customers.slice(0, 3)) {
-      const safeId = customer.Id.replace(/['"\\]/g, "");
-      const invoiceQuery = `SELECT * FROM Invoice WHERE CustomerRef = '${safeId}' ORDERBY TxnDate DESC MAXRESULTS 5`;
-      const invoiceUrl = `${baseUrl}/v3/company/${realmId}/query?query=${encodeURIComponent(invoiceQuery)}&minorversion=65`;
-
-      const invoiceRes = await fetch(invoiceUrl, {
-        headers: { Authorization: `Bearer ${accessToken}`, Accept: "application/json" },
-      });
-
-      if (!invoiceRes.ok) continue;
-
-      const invoiceData = await invoiceRes.json();
-      const invoices: QBInvoice[] = invoiceData?.QueryResponse?.Invoice ?? [];
-
+      const safeId  = customer.Id.replace(/['"\\]/g, "");
+      const iQuery  = `SELECT * FROM Invoice WHERE CustomerRef = '${safeId}' ORDERBY TxnDate DESC MAXRESULTS 5`;
+      const iUrl    = `${base}/v3/company/${realmId}/query?query=${encodeURIComponent(iQuery)}&minorversion=65`;
+      const iRes    = await fetch(iUrl, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+      if (!iRes.ok) continue;
+      const iData   = await iRes.json();
+      const invoices: QBInvoice[] = iData?.QueryResponse?.Invoice ?? [];
       for (const inv of invoices) {
-        let status: QBInvoiceStatus;
-        if (inv.Balance === 0) status = "paid";
-        else if (inv.Balance < inv.TotalAmt) status = "partial";
-        else status = "unpaid";
-
-        results.push({
-          found: true,
-          status,
-          invoice: inv,
-          customerName: inv.CustomerRef?.name ?? customer.DisplayName,
-          totalAmount: inv.TotalAmt,
-        });
+        const status: QBInvoiceStatus = inv.Balance === 0 ? "paid" : inv.Balance < inv.TotalAmt ? "partial" : "unpaid";
+        results.push({ found: true, status, invoice: inv, customerName: inv.CustomerRef?.name ?? customer.DisplayName, totalAmount: inv.TotalAmt });
       }
     }
-
     return results;
   } catch (err: any) {
     console.error("[QB] Phone lookup error:", err?.message);
@@ -486,17 +247,41 @@ export async function lookupQBInvoiceByPhone(phone: string): Promise<QBInvoiceLo
   }
 }
 
-/** Check if QuickBooks is fully connected (has realm + refresh token) */
-export function isQBConnected(): boolean {
-  return Boolean(
-    ENV.qbClientId &&
-    ENV.qbClientSecret &&
-    (ENV.qbRealmId || _cachedRealmId) &&
-    (ENV.qbRefreshToken || _cachedRefreshToken)
-  );
+// ─── Payment: resolve linked invoice IDs ─────────────────────────────────────
+
+export async function fetchQBPaymentLinkedInvoiceIds(paymentId: string): Promise<string[]> {
+  try {
+    const token   = await getValidAccessToken();
+    const realmId = await getQBRealmId();
+    const base    = QB_BASE_URLS[ENV.qbEnvironment];
+    const safeId  = paymentId.replace(/['"\\]/g, "");
+    const url     = `${base}/v3/company/${realmId}/payment/${safeId}?minorversion=65`;
+
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (!res.ok) { console.error(`[QB] Payment ${paymentId}: ${res.status}`); return []; }
+
+    const data    = await res.json();
+    const payment = data?.Payment ?? data;
+    const ids: string[] = [];
+    for (const line of (payment?.Line ?? [])) {
+      for (const txn of (line?.LinkedTxn ?? [])) {
+        if (txn.TxnType === "Invoice") ids.push(txn.TxnId);
+      }
+    }
+    console.log(`[QB] Payment ${paymentId} linked invoices: ${ids.join(", ") || "none"}`);
+    return ids;
+  } catch (err: any) {
+    console.error(`[QB] Payment fetch error: ${err?.message}`);
+    return [];
+  }
 }
 
-/** Check if QuickBooks client credentials are configured */
+// ─── Status helpers ───────────────────────────────────────────────────────────
+
+export function isQBConnected(): boolean {
+  return Boolean(ENV.qbClientId && ENV.qbClientSecret && (ENV.qbRealmId || _cachedRealmId) && (ENV.qbRefreshToken || _cachedRefreshToken));
+}
+
 export function isQBConfigured(): boolean {
   return Boolean(ENV.qbClientId && ENV.qbClientSecret);
 }

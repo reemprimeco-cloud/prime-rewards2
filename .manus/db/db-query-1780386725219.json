@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE qb_payment_syncs ADD UNIQUE KEY uq_qbInvoiceId (qbInvoiceId)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute ALTER TABLE qb_payment_syncs ADD UNIQUE KEY uq_qbInvoiceId (qbInvoiceId)",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2036
+}

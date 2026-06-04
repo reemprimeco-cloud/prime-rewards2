@@ -1,0 +1,30 @@
+{
+  "query": "SHOW CREATE TABLE qb_payment_syncs",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SHOW CREATE TABLE qb_payment_syncs",
+  "rows": [
+    {
+      "Table": "qb_payment_syncs",
+      "Create Table": "CREATE TABLE `qb_payment_syncs` ("
+    }
+  ],
+  "messages": [
+    "  `id` int NOT NULL AUTO_INCREMENT,",
+    "  `qbInvoiceId` varchar(255) NOT NULL,",
+    "  `invoiceNumber` varchar(64) NOT NULL,",
+    "  `customerPhone` varchar(32) NOT NULL,",
+    "  `customerName` varchar(255) DEFAULT NULL,",
+    "  `amount` decimal(10,2) NOT NULL,",
+    "  `pointsCalculated` int NOT NULL,",
+    "  `status` enum('pending','success','failed','duplicate') NOT NULL DEFAULT 'pending',",
+    "  `customerId` int DEFAULT NULL,",
+    "  `errorMessage` text DEFAULT NULL,",
+    "  `webhookEventId` varchar(255) DEFAULT NULL,",
+    "  `processedAt` timestamp NULL DEFAULT NULL,",
+    "  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,",
+    "  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */",
+    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin AUTO_INCREMENT=510001"
+  ],
+  "stdout": "Table\tCreate Table\nqb_payment_syncs\tCREATE TABLE `qb_payment_syncs` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `qbInvoiceId` varchar(255) NOT NULL,\n  `invoiceNumber` varchar(64) NOT NULL,\n  `customerPhone` varchar(32) NOT NULL,\n  `customerName` varchar(255) DEFAULT NULL,\n  `amount` decimal(10,2) NOT NULL,\n  `pointsCalculated` int NOT NULL,\n  `status` enum('pending','success','failed','duplicate') NOT NULL DEFAULT 'pending',\n  `customerId` int DEFAULT NULL,\n  `errorMessage` text DEFAULT NULL,\n  `webhookEventId` varchar(255) DEFAULT NULL,\n  `processedAt` timestamp NULL DEFAULT NULL,\n  `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin AUTO_INCREMENT=510001\n",
+  "stderr": "",
+  "execution_time_ms": 2440
+}

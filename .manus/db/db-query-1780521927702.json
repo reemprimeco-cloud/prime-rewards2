@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) as count FROM qb_payment_syncs WHERE customerPhone LIKE 'whatsapp:%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT COUNT(*) as count FROM qb_payment_syncs WHERE customerPhone LIKE 'whatsapp:%';",
+  "rows": [
+    {
+      "count": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "count\n0\n",
+  "stderr": "",
+  "execution_time_ms": 1750
+}

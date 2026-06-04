@@ -1,0 +1,18 @@
+{
+  "query": "SELECT id, phone, messageType, status, messageSid, createdAt FROM whatsapp_logs WHERE messageBody LIKE '%2517%' OR phone LIKE '%0123456%' ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, phone, messageType, status, messageSid, createdAt FROM whatsapp_logs WHERE messageBody LIKE '%2517%' OR phone LIKE '%0123456%' ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "930001",
+      "phone": "whatsapp:+96550123456",
+      "messageType": "points_awarded",
+      "status": "failed",
+      "messageSid": "NULL",
+      "createdAt": "2026-06-04 10:41:30"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tphone\tmessageType\tstatus\tmessageSid\tcreatedAt\n930001\twhatsapp:+96550123456\tpoints_awarded\tfailed\tNULL\t2026-06-04 10:41:30\n",
+  "stderr": "",
+  "execution_time_ms": 1749
+}
