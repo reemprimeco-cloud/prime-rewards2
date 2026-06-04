@@ -216,7 +216,7 @@ export async function processQbPaymentEvent(eventData: {
         // Send signup invitation WhatsApp template
         const signupResult = await sendWhatsAppTemplate(
           normalizedPhone,
-          "reward_test",
+          "HXa2d8c4d852521f5ff648294c7dd28844",
           {
             customer_name: eventData.customerName || "Valued Customer",
             points_earned: String(pointsCalculated),

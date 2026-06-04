@@ -285,3 +285,56 @@ export function isQBConnected(): boolean {
 export function isQBConfigured(): boolean {
   return Boolean(ENV.qbClientId && ENV.qbClientSecret);
 }
+
+// ─── OAuth 2.0 helpers ────────────────────────────────────────────────────────
+
+export function getQBAuthUrl(state: string): string {
+  const clientId = process.env.QUICKBOOKS_CLIENT_ID || process.env.QB_CLIENT_ID;
+  const redirectUri = process.env.QUICKBOOKS_REDIRECT_URI || `${process.env.VITE_APP_URL || "https://primerewds.com"}/api/qb/callback`;
+  const scope = "com.intuit.quickbooks.accounting";
+  const authUrl = new URL("https://appcenter.intuit.com/connect/oauth2");
+  authUrl.searchParams.set("client_id", clientId || "");
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", scope);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("state", state);
+  return authUrl.toString();
+}
+
+export async function exchangeQBCode(code: string): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
+  const clientId = process.env.QUICKBOOKS_CLIENT_ID || process.env.QB_CLIENT_ID;
+  const clientSecret = process.env.QUICKBOOKS_CLIENT_SECRET || process.env.QB_CLIENT_SECRET;
+  const redirectUri = process.env.QUICKBOOKS_REDIRECT_URI || `${process.env.VITE_APP_URL || "https://primerewds.com"}/api/qb/callback`;
+
+  if (!clientId || !clientSecret) {
+    throw new Error("QB_CLIENT_ID or QB_CLIENT_SECRET not configured");
+  }
+
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: redirectUri,
+  });
+
+  const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const res = await fetch(QB_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${auth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`QB OAuth error ${res.status}: ${text}`);
+  }
+
+  const data = await res.json();
+  return {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_in: data.expires_in,
+  };
+}
