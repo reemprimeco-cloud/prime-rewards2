@@ -201,6 +201,8 @@ export async function submitInvoice(data: {
   invoiceNumber: string;
   invoiceAmount: number;
   campaignId?: number;
+  source?: string;
+  pendingReview?: boolean;
 }) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
@@ -756,8 +758,8 @@ export async function getSpinEligibility(customerId: number) {
   return { eligible: true };
 }
 
-export async function tryAutoApprove(data: any) {
-  return { approved: false };
+export async function tryAutoApprove(invoiceId: number) {
+  return { result: "skipped" as "approved" | "phone_mismatch" | "not_in_registry" | "already_used" | "skipped" };
 }
 
 export async function blockSuspiciousAccount(customerId: number, adminId: number) {
@@ -776,7 +778,7 @@ export async function isCustomerBlocked(customerId: number) {
   return false;
 }
 
-export async function recordFailedAttempt(customerId: number) {
+export async function recordFailedAttempt(data: { customerId: number; attemptType: string; invoiceNumber: string; details: string; ipAddress: string }) {
   return true;
 }
 
