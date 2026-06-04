@@ -1,0 +1,9 @@
+{
+  "query": "SELECT id, customerId, phone, messageType, status, messageSid, createdAt FROM whatsapp_logs WHERE phone LIKE '%97979054%' ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, customerId, phone, messageType, status, messageSid, createdAt FROM whatsapp_logs WHERE phone LIKE '%97979054%' ORDER BY id DESC LIMIT 10;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1695
+}

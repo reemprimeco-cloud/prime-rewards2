@@ -1,0 +1,100 @@
+{
+  "query": "SELECT id, customerId, phone, messageType, status, messageSid, createdAt FROM whatsapp_logs ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, customerId, phone, messageType, status, messageSid, createdAt FROM whatsapp_logs ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "1050001",
+      "customerId": "30001",
+      "phone": "+96594493883",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "messageSid": "MM2cc3384b377a092817176e7febd72660",
+      "createdAt": "2026-06-04 15:25:34"
+    },
+    {
+      "id": "1020001",
+      "customerId": "30001",
+      "phone": "+96594493883",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "messageSid": "MM39b947d3e7d4983d769ad5007b22910c",
+      "createdAt": "2026-06-04 15:00:15"
+    },
+    {
+      "id": "990003",
+      "customerId": "30001",
+      "phone": "+96594493883",
+      "messageType": "points_awarded",
+      "status": "failed",
+      "messageSid": "NULL",
+      "createdAt": "2026-06-04 14:43:14"
+    },
+    {
+      "id": "990002",
+      "customerId": "30001",
+      "phone": "+96594493883",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "messageSid": "MM84c4782aaa24810f18a6bc510323198c",
+      "createdAt": "2026-06-04 14:41:49"
+    },
+    {
+      "id": "990001",
+      "customerId": "30001",
+      "phone": "+96594493883",
+      "messageType": "points_awarded",
+      "status": "failed",
+      "messageSid": "NULL",
+      "createdAt": "2026-06-04 14:40:46"
+    },
+    {
+      "id": "900001",
+      "customerId": "1",
+      "phone": "+96565068000",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "messageSid": "MMa21fc04656c34b8b2386101b53011c99",
+      "createdAt": "2026-06-03 21:07:30"
+    },
+    {
+      "id": "600001",
+      "customerId": "1",
+      "phone": "+96565068000",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "messageSid": "MM8aa9d1ef596a5dc1ed610ee0e3c1747b",
+      "createdAt": "2026-06-01 14:04:51"
+    },
+    {
+      "id": "540001",
+      "customerId": "1",
+      "phone": "+96565068000",
+      "messageType": "points_awarded",
+      "status": "failed",
+      "messageSid": "NULL",
+      "createdAt": "2026-06-01 13:34:10"
+    },
+    {
+      "id": "120001",
+      "customerId": "1",
+      "phone": "65068000",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "messageSid": "SM08d1ce6de76cbc59fa6dc627609862c1",
+      "createdAt": "2026-05-26 22:12:33"
+    },
+    {
+      "id": "90002",
+      "customerId": "1",
+      "phone": "65068000",
+      "messageType": "points_awarded",
+      "status": "sent",
+      "messageSid": "SMfee8e7f0a626ab8441104122eeddb8db",
+      "createdAt": "2026-05-25 23:26:30"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcustomerId\tphone\tmessageType\tstatus\tmessageSid\tcreatedAt\n1050001\t30001\t+96594493883\tpoints_awarded\tsent\tMM2cc3384b377a092817176e7febd72660\t2026-06-04 15:25:34\n1020001\t30001\t+96594493883\tpoints_awarded\tsent\tMM39b947d3e7d4983d769ad5007b22910c\t2026-06-04 15:00:15\n990003\t30001\t+96594493883\tpoints_awarded\tfailed\tNULL\t2026-06-04 14:43:14\n990002\t30001\t+96594493883\tpoints_awarded\tsent\tMM84c4782aaa24810f18a6bc510323198c\t2026-06-04 14:41:49\n990001\t30001\t+96594493883\tpoints_awarded\tfailed\tNULL\t2026-06-04 14:40:46\n900001\t1\t+96565068000\tpoints_awarded\tsent\tMMa21fc04656c34b8b2386101b53011c99\t2026-06-03 21:07:30\n600001\t1\t+96565068000\tpoints_awarded\tsent\tMM8aa9d1ef596a5dc1ed610ee0e3c1747b\t2026-06-01 14:04:51\n540001\t1\t+96565068000\tpoints_awarded\tfailed\tNULL\t2026-06-01 13:34:10\n120001\t1\t65068000\tpoints_awarded\tsent\tSM08d1ce6de76cbc59fa6dc627609862c1\t2026-05-26 22:12:33\n90002\t1\t65068000\tpoints_awarded\tsent\tSMfee8e7f0a626ab8441104122eeddb8db\t2026-05-25 23:26:30\n",
+  "stderr": "",
+  "execution_time_ms": 1853
+}

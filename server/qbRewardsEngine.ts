@@ -2,6 +2,7 @@ import { getDb, logWhatsApp } from "./db";
 import { customers, qbPaymentSyncs, pendingRewards, whatsappLogs } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { sendWhatsApp, sendWhatsAppTemplate, normalisePhone } from "./whatsapp";
+import { ENV } from "./_core/env";
 
 const POINTS_PER_10_KD = 1;
 
@@ -152,7 +153,7 @@ export async function processQbPaymentEvent(eventData: {
         // Send WhatsApp template notification
         const whatsappResult = await sendWhatsAppTemplate(
           normalizedPhone,
-          "HXa2d8c4d852521f5ff648294c7dd28844",
+          ENV.twilioRewardContentSid,
           {
             customer_name: eventData.customerName || "Valued Customer",
             points_earned: String(pointsCalculated),
@@ -216,7 +217,7 @@ export async function processQbPaymentEvent(eventData: {
         // Send signup invitation WhatsApp template
         const signupResult = await sendWhatsAppTemplate(
           normalizedPhone,
-          "HXa2d8c4d852521f5ff648294c7dd28844",
+          ENV.twilioRewardContentSid,
           {
             customer_name: eventData.customerName || "Valued Customer",
             points_earned: String(pointsCalculated),
@@ -326,7 +327,7 @@ export async function processPendingWhatsAppQueue(): Promise<void> {
       try {
         console.log(`[QB Rewards Queue] Retrying WhatsApp ${log.id} to ${log.phone}`);
         // Use template-based sending instead of freeform messages
-        const result = await sendWhatsAppTemplate(log.phone, "HXa2d8c4d852521f5ff648294c7dd28844", {
+        const result = await sendWhatsAppTemplate(log.phone, ENV.twilioRewardContentSid, {
           message: log.messageBody,
         });
 
