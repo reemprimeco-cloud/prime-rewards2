@@ -152,7 +152,7 @@ export async function processQbPaymentEvent(eventData: {
         // Send WhatsApp template notification
         const whatsappResult = await sendWhatsAppTemplate(
           normalizedPhone,
-          "reward_test",
+          "HXa2d8c4d852521f5ff648294c7dd28844",
           {
             customer_name: eventData.customerName || "Valued Customer",
             points_earned: String(pointsCalculated),
@@ -161,7 +161,7 @@ export async function processQbPaymentEvent(eventData: {
         );
         
         // Log the WhatsApp send
-        const templateMessage = `Template: reward_test | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
+        const templateMessage = `Template: HXa2d8c4d852521f5ff648294c7dd28844 | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
         if (whatsappResult.success) {
           await logWhatsApp({
             customerId,
@@ -225,7 +225,7 @@ export async function processQbPaymentEvent(eventData: {
         );
         
         // Log the signup invitation WhatsApp
-        const templateMessage = `Template: reward_test (signup) | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
+        const templateMessage = `Template: HXa2d8c4d852521f5ff648294c7dd28844 (signup) | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
         if (signupResult.success) {
           await logWhatsApp({
             phone: normalizedPhone,
@@ -326,7 +326,7 @@ export async function processPendingWhatsAppQueue(): Promise<void> {
       try {
         console.log(`[QB Rewards Queue] Retrying WhatsApp ${log.id} to ${log.phone}`);
         // Use template-based sending instead of freeform messages
-        const result = await sendWhatsAppTemplate(log.phone, "reward_test", {
+        const result = await sendWhatsAppTemplate(log.phone, "HXa2d8c4d852521f5ff648294c7dd28844", {
           message: log.messageBody,
         });
 
