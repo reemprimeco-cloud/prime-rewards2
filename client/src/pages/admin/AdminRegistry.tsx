@@ -35,7 +35,7 @@ export default function AdminRegistry() {
     notes: "",
   });
 
-  const { data: entries = [], refetch, isLoading } = trpc.registry.list.useQuery({ limit: 200 });
+  const { data: entries = [], refetch, isLoading } = trpc.registry.list.useQuery({ limit: 200 }) as any;
 
   const addMutation = trpc.registry.add.useMutation({
     onSuccess: () => {
@@ -90,7 +90,7 @@ export default function AdminRegistry() {
     });
   };
 
-  const statusBadge = (entry: typeof entries[0]) => {
+  const statusBadge = (entry: any) => {
     if (entry.isUsed) return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle className="w-3 h-3 mr-1" />Used</Badge>;
     return <Badge className="bg-blue-100 text-blue-800 border-blue-200"><Clock className="w-3 h-3 mr-1" />Available</Badge>;
   };
