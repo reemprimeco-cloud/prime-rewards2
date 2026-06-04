@@ -728,7 +728,7 @@ export async function getRegistry(limit?: number, offset?: number) {
   return [];
 }
 
-export async function lookupRegistry(id: number) {
+export async function lookupRegistry(invoiceNumber: string) {
   const db = await getDb();
   if (!db) return null;
   return null;
@@ -760,15 +760,15 @@ export async function tryAutoApprove(data: any) {
   return { approved: false };
 }
 
-export async function blockSuspiciousAccount(customerId: number) {
+export async function blockSuspiciousAccount(customerId: number, adminId: number) {
   return true;
 }
 
-export async function getSuspiciousAccounts() {
+export async function getSuspiciousAccounts(limit: number) {
   return [];
 }
 
-export async function unblockSuspiciousAccount(customerId: number) {
+export async function unblockSuspiciousAccount(customerId: number, adminId: number) {
   return true;
 }
 
