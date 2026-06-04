@@ -66,7 +66,7 @@ export default function AdminRegistry() {
     onError: (e) => toast.error(e.message),
   });
 
-  const filtered = entries.filter((e) => {
+  const filtered = entries.filter((e: any) => {
     const q = search.toLowerCase();
     return (
       e.invoiceNumber.toLowerCase().includes(q) ||
@@ -207,11 +207,11 @@ export default function AdminRegistry() {
             <div className="text-xs text-gray-500">Total Entries</div>
           </div>
           <div className="bg-white border rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-green-600">{entries.filter(e => e.isUsed).length}</div>
+            <div className="text-2xl font-bold text-green-600">{entries.filter((e: any) => e.isUsed).length}</div>
             <div className="text-xs text-gray-500">Used / Claimed</div>
           </div>
           <div className="bg-white border rounded-lg p-3 text-center">
-            <div className="text-2xl font-bold text-blue-600">{entries.filter(e => !e.isUsed).length}</div>
+            <div className="text-2xl font-bold text-blue-600">{entries.filter((e: any) => !e.isUsed).length}</div>
             <div className="text-xs text-gray-500">Available</div>
           </div>
         </div>
@@ -253,7 +253,7 @@ export default function AdminRegistry() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((entry) => (
+                  {filtered.map((entry: any) => (
                     <TableRow key={entry.id} className={entry.isUsed ? "bg-green-50/50" : ""}>
                       <TableCell className="font-mono font-semibold text-blue-900">{entry.invoiceNumber}</TableCell>
                       <TableCell className="font-mono text-sm">{entry.customerPhone}</TableCell>

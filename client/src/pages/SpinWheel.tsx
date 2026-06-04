@@ -206,11 +206,11 @@ export default function SpinWheel() {
     );
   }
 
-  const canSpin = spinStatus?.canSpin ?? false;
-  const isWelcomeSpin = spinStatus?.isWelcomeSpin ?? false;
-  const approvedInvoiceCount = spinStatus?.approvedInvoiceCount ?? 0;
-  const nextUnlockAt = spinStatus?.nextUnlockAt ?? 5;
-  const spinsRemaining = spinStatus?.spinsRemaining ?? 0;
+  const canSpin = (spinStatus as any)?.canSpin ?? false;
+  const isWelcomeSpin = (spinStatus as any)?.isWelcomeSpin ?? false;
+  const approvedInvoiceCount = (spinStatus as any)?.approvedInvoiceCount ?? 0;
+  const nextUnlockAt = (spinStatus as any)?.nextUnlockAt ?? 5;
+  const spinsRemaining = (spinStatus as any)?.spinsRemaining ?? 0;
 
   // Progress toward next spin unlock
   const lastMilestone = Math.floor(approvedInvoiceCount / 5) * 5;
