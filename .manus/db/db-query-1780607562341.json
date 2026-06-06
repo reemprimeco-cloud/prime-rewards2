@@ -1,0 +1,164 @@
+{
+  "query": "SHOW FULL COLUMNS FROM whatsapp_logs;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SHOW FULL COLUMNS FROM whatsapp_logs;",
+  "rows": [
+    {
+      "Field": "id",
+      "Type": "int",
+      "Collation": "NULL",
+      "Null": "NO",
+      "Key": "PRI",
+      "Default": "NULL",
+      "Extra": "auto_increment",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "customerId",
+      "Type": "int",
+      "Collation": "NULL",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "phone",
+      "Type": "varchar(32)",
+      "Collation": "utf8mb4_bin",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "messageType",
+      "Type": "enum('points_awarded','welcome','tier_upgrade','reward_redeemed','expiry_warning','spin_win','manual')",
+      "Collation": "utf8mb4_bin",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "messageBody",
+      "Type": "text",
+      "Collation": "utf8mb4_bin",
+      "Null": "NO",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "status",
+      "Type": "enum('sent','failed','pending','retrying','delivered','read')",
+      "Collation": "utf8mb4_bin",
+      "Null": "NO",
+      "Key": "",
+      "Default": "pending",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "messageSid",
+      "Type": "varchar(64)",
+      "Collation": "utf8mb4_bin",
+      "Null": "YES",
+      "Key": "UNI",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "errorMessage",
+      "Type": "text",
+      "Collation": "utf8mb4_bin",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "retryCount",
+      "Type": "int",
+      "Collation": "NULL",
+      "Null": "NO",
+      "Key": "",
+      "Default": "0",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "invoiceId",
+      "Type": "int",
+      "Collation": "NULL",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "sentAt",
+      "Type": "timestamp",
+      "Collation": "NULL",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "createdAt",
+      "Type": "timestamp",
+      "Collation": "NULL",
+      "Null": "NO",
+      "Key": "",
+      "Default": "CURRENT_TIMESTAMP",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "deliveredAt",
+      "Type": "timestamp",
+      "Collation": "NULL",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    },
+    {
+      "Field": "twilioResponse",
+      "Type": "text",
+      "Collation": "utf8mb4_bin",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": "",
+      "Privileges": "select,insert,update,references",
+      "Comment": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tCollation\tNull\tKey\tDefault\tExtra\tPrivileges\tComment\nid\tint\tNULL\tNO\tPRI\tNULL\tauto_increment\tselect,insert,update,references\t\ncustomerId\tint\tNULL\tYES\t\tNULL\t\tselect,insert,update,references\t\nphone\tvarchar(32)\tutf8mb4_bin\tNO\t\tNULL\t\tselect,insert,update,references\t\nmessageType\tenum('points_awarded','welcome','tier_upgrade','reward_redeemed','expiry_warning','spin_win','manual')\tutf8mb4_bin\tNO\t\tNULL\t\tselect,insert,update,references\t\nmessageBody\ttext\tutf8mb4_bin\tNO\t\tNULL\t\tselect,insert,update,references\t\nstatus\tenum('sent','failed','pending','retrying','delivered','read')\tutf8mb4_bin\tNO\t\tpending\t\tselect,insert,update,references\t\nmessageSid\tvarchar(64)\tutf8mb4_bin\tYES\tUNI\tNULL\t\tselect,insert,update,references\t\nerrorMessage\ttext\tutf8mb4_bin\tYES\t\tNULL\t\tselect,insert,update,references\t\nretryCount\tint\tNULL\tNO\t\t0\t\tselect,insert,update,references\t\ninvoiceId\tint\tNULL\tYES\t\tNULL\t\tselect,insert,update,references\t\nsentAt\ttimestamp\tNULL\tYES\t\tNULL\t\tselect,insert,update,references\t\ncreatedAt\ttimestamp\tNULL\tNO\t\tCURRENT_TIMESTAMP\t\tselect,insert,update,references\t\ndeliveredAt\ttimestamp\tNULL\tYES\t\tNULL\t\tselect,insert,update,references\t\ntwilioResponse\ttext\tutf8mb4_bin\tYES\t\tNULL\t\tselect,insert,update,references\t\n",
+  "stderr": "",
+  "execution_time_ms": 2266
+}

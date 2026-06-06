@@ -10,6 +10,7 @@ import {
   bigint,
   float,
   json,
+  unique,
 } from "drizzle-orm/mysql-core";
 
 // ─── Core Auth User ────────────────────────────────────────────────────────────
@@ -214,12 +215,15 @@ export const whatsappLogs = mysqlTable("whatsapp_logs", {
   phone: varchar("phone", { length: 32 }).notNull(),
   messageType: mysqlEnum("messageType", ["points_awarded", "welcome", "tier_upgrade", "reward_redeemed", "expiry_warning", "spin_win", "manual"]).notNull(),
   messageBody: text("messageBody").notNull(),
-  status: mysqlEnum("status", ["sent", "failed", "pending", "retrying"]).default("pending").notNull(),
+  status: mysqlEnum("status", ["sent", "failed", "pending", "retrying", "queued", "delivered", "read", "undelivered"]).default("pending").notNull(),
   messageSid: varchar("messageSid", { length: 64 }).unique(),
   errorMessage: text("errorMessage"),
   retryCount: int("retryCount").default(0).notNull(),
   invoiceId: int("invoiceId"),
+  sentAt: timestamp("sentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  deliveredAt: timestamp("deliveredAt"),
+  twilioResponse: text("twilioResponse"),
 });
 export type WhatsappLog = typeof whatsappLogs.$inferSelect;
 export type InsertWhatsappLog = typeof whatsappLogs.$inferInsert;
@@ -227,7 +231,7 @@ export type InsertWhatsappLog = typeof whatsappLogs.$inferInsert;
 // ─── QB Payment Syncs ──────────────────────────────────────────────────────────
 export const qbPaymentSyncs = mysqlTable("qb_payment_syncs", {
   id: int("id").autoincrement().primaryKey(),
-  qbInvoiceId: varchar("qbInvoiceId", { length: 255 }).notNull(),
+  qbInvoiceId: varchar("qbInvoiceId", { length: 255 }).notNull().unique(),
   invoiceNumber: varchar("invoiceNumber", { length: 64 }).notNull(),
   customerPhone: varchar("customerPhone", { length: 32 }).notNull(),
   customerName: varchar("customerName", { length: 255 }),
@@ -257,6 +261,8 @@ export const pendingRewards = mysqlTable("pending_rewards", {
   claimedAt: timestamp("claimedAt"),
   expiresAt: timestamp("expiresAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+}, (table) => [unique("uk_pending_rewards_phone_invoice").on(table.phone, table.invoiceNumber)]);
+
+
 export type PendingReward = typeof pendingRewards.$inferSelect;
 export type InsertPendingReward = typeof pendingRewards.$inferInsert;

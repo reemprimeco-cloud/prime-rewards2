@@ -4,6 +4,7 @@ export interface WhatsAppResult {
   success: boolean;
   messageSid?: string;
   error?: string;
+  twilioResponse?: Record<string, any>;
 }
 
 /**
@@ -18,14 +19,14 @@ export function normalisePhone(raw: string): string | null {
   // Strip whatsapp: prefix if present
   let p = raw.replace(/^whatsapp:/i, "");
 
-  // Remove spaces, dashes, parentheses, plus
-  p = p.replace(/[\s\-()+]/g, "");
+  // Remove all non-digits
+  p = p.replace(/\D/g, "");
 
   // Remove leading 00
   if (p.startsWith("00")) p = p.slice(2);
 
-  // Bare 8-digit Kuwait number — prepend 965
-  if (!p.startsWith("965") && p.length === 8) p = "965" + p;
+  // If bare 8 digits, prepend 965
+  if (p.length === 8) p = "965" + p;
 
   // Must be exactly 11 digits starting with 965
   if (!/^965\d{8}$/.test(p)) {
@@ -91,15 +92,15 @@ export async function sendWhatsAppTemplate(
       }
     );
 
-    const data = await res.json() as { sid?: string; error_message?: string; status?: string };
+    const data = await res.json() as Record<string, any>;
 
     if (!res.ok) {
       console.error(`[WhatsApp] ❌ Twilio ${res.status}: ${data.error_message}`);
-      return { success: false, error: data.error_message ?? `HTTP ${res.status}` };
+      return { success: false, error: data.error_message ?? `HTTP ${res.status}`, twilioResponse: data };
     }
 
     console.log(`[WhatsApp] ✅ Sent — SID: ${data.sid}`);
-    return { success: true, messageSid: data.sid };
+    return { success: true, messageSid: data.sid, twilioResponse: data };
   } catch (err: any) {
     console.error(`[WhatsApp] Network error: ${err?.message}`);
     return { success: false, error: err?.message ?? "Network error" };

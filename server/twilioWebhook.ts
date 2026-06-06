@@ -75,30 +75,51 @@ export function registerTwilioWebhookRoutes(app: Express) {
         
         const db = await getDb();
         if (db && messageSid) {
-          // Map Twilio status to our status enum
+          // Map Twilio status to our status enum (queued, sent, delivered, read, failed, undelivered)
           let logStatus = "sent";
-          if (messageStatus === "failed" || messageStatus === "undelivered") {
+          let updateData: any = {};
+          
+          if (messageStatus === "queued") {
+            logStatus = "queued";
+            updateData.status = logStatus;
+          } else if (messageStatus === "sent") {
+            logStatus = "sent";
+            updateData.status = logStatus;
+            updateData.sentAt = new Date();
+          } else if (messageStatus === "delivered") {
+            logStatus = "delivered";
+            updateData.status = logStatus;
+            updateData.deliveredAt = new Date();
+          } else if (messageStatus === "read") {
+            logStatus = "read";
+            updateData.status = logStatus;
+            updateData.deliveredAt = new Date(); // Mark as delivered if read
+          } else if (messageStatus === "failed" || messageStatus === "undelivered") {
             logStatus = "failed";
+            updateData.status = logStatus;
+          } else {
+            // Unknown status — treat as sent
+            logStatus = "sent";
+            updateData.status = logStatus;
+            updateData.sentAt = new Date();
           }
-
-          const updateData: any = {
-            status: logStatus,
-            sentAt: new Date(),
-          };
 
           // Log error details if present
           if (errorCode || errorMessage) {
             updateData.errorMessage = `Twilio ${messageStatus}: ${errorCode || ""} - ${errorMessage || ""}`;
           }
 
-          await db.update(whatsappLogs)
+          const updateResult = await db.update(whatsappLogs)
             .set(updateData)
             .where(eq(whatsappLogs.messageSid, messageSid));
           
-          console.log(`[Twilio Status] Updated whatsapp_logs for ${messageSid}: ${logStatus}`);
+          console.log(`[Twilio Status] ✅ Updated whatsapp_logs for ${messageSid}: ${logStatus}`);
         }
-      } catch (dbError) {
-        console.error("[Twilio Status] Failed to update database:", dbError);
+      } catch (dbError: any) {
+        console.error(`[Twilio Status] ❌ DB UPDATE FAILED for messageSid=${messageSid}`);
+        console.error(`[Twilio Status]   - Status: ${messageStatus}`);
+        console.error(`[Twilio Status]   - Error: ${dbError?.message}`);
+        console.error(`[Twilio Status]   - Code: ${dbError?.code}`);
       }
 
       // Acknowledge receipt

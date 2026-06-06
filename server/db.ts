@@ -27,7 +27,9 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _db = drizzle(process.env.DATABASE_URL, {
+        logger: true,
+      });
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -683,6 +685,7 @@ export async function logWhatsApp(data: {
   messageSid?: string;
   errorMessage?: string;
   invoiceId?: number;
+  twilioResponse?: Record<string, any>;
 }): Promise<number | undefined> {
   const db = await getDb();
   if (!db) return undefined;
@@ -695,6 +698,8 @@ export async function logWhatsApp(data: {
     messageSid: data.messageSid ?? null,
     errorMessage: data.errorMessage ?? null,
     invoiceId: data.invoiceId ?? null,
+    sentAt: data.status === "sent" ? new Date() : null,
+    twilioResponse: data.twilioResponse ? JSON.stringify(data.twilioResponse) : null,
   });
   return (result as any).insertId as number | undefined;
 }

@@ -1,0 +1,3 @@
+ALTER TABLE `whatsapp_logs` MODIFY COLUMN `status` enum('sent','failed','pending','retrying','queued','delivered','read','undelivered') NOT NULL DEFAULT 'pending';--> statement-breakpoint
+ALTER TABLE `pending_rewards` ADD CONSTRAINT `uk_pending_rewards_phone_invoice` UNIQUE(`phone`,`invoiceNumber`);--> statement-breakpoint
+ALTER TABLE `qb_payment_syncs` ADD CONSTRAINT `qb_payment_syncs_qbInvoiceId_unique` UNIQUE(`qbInvoiceId`);

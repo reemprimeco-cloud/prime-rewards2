@@ -1,46 +1,59 @@
 import { getDb, logWhatsApp } from "./db";
 import { customers, qbPaymentSyncs, pendingRewards, whatsappLogs } from "../drizzle/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, like } from "drizzle-orm";
 import { sendWhatsApp, sendWhatsAppTemplate, normalisePhone } from "./whatsapp";
 import { ENV } from "./_core/env";
 
 const POINTS_PER_10_KD = 1;
 
 /**
- * Normalize Kuwait phone number to whatsapp format: whatsapp:+965XXXXXXXX
+ * Normalize Kuwait phone number to E.164: +965XXXXXXXX
+ * Uses the canonical normalisePhone from whatsapp.ts as single source of truth.
  */
 export function normalizeKuwaitPhone(phone: string): string | null {
+  return normalisePhone(phone);
+}
+
+/**
+ * Reduce ANY phone format to the canonical Kuwait local 8-digit number.
+ * This is the key used for matching, so formatting (spaces, +965, 00965,
+ * dashes) on either side never causes a miss.
+ *   +965 506 55856 -> 50655856
+ *   +96550655856   -> 50655856
+ *   50655856       -> 50655856
+ */
+export function kuwaitLocal8(phone: string | null | undefined): string | null {
   if (!phone) return null;
-  
-  // Remove all non-digits
   const digits = phone.replace(/\D/g, "");
-  
-  // Handle various formats
-  let normalized = digits;
-  
-  // If starts with 965 (country code), keep as is
-  if (digits.startsWith("965")) {
-    normalized = digits;
-  }
-  // If starts with 00965, remove leading 00
-  else if (digits.startsWith("00965")) {
-    normalized = digits.slice(2);
-  }
-  // If 8 digits (local format), add 965
-  else if (digits.length === 8) {
-    normalized = "965" + digits;
-  }
-  // If 10 digits starting with 0, replace 0 with 965
-  else if (digits.length === 10 && digits.startsWith("0")) {
-    normalized = "965" + digits.slice(1);
-  }
-  
-  // Validate: must be 11 digits (965 + 8 digits)
-  if (normalized.length !== 11 || !normalized.startsWith("965")) {
-    return null;
-  }
-  
-  return `+${normalized}`;
+  if (digits.length < 8) return null;
+  return digits.slice(-8);
+}
+
+/**
+ * Find a customer by phone, resilient to stored-format differences.
+ * 1) Fast path: exact match on the normalized number.
+ * 2) Fallback: match on the last 8 digits (handles any stored format).
+ */
+async function findCustomerByPhone(db: any, normalizedPhone: string) {
+  let rows = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.phone, normalizedPhone))
+    .limit(1);
+
+  if (rows.length > 0) return rows;
+
+  const local8 = kuwaitLocal8(normalizedPhone);
+  if (!local8) return [];
+
+  const candidates = await db
+    .select()
+    .from(customers)
+    .where(like(customers.phone, `%${local8}`))
+    .limit(25);
+
+  const match = candidates.find((c: any) => kuwaitLocal8(c.phone) === local8);
+  return match ? [match] : [];
 }
 
 /**
@@ -110,35 +123,45 @@ export async function processQbPaymentEvent(eventData: {
     const pointsCalculated = calculatePoints(eventData.amount);
     console.log(`[QB Rewards] 📊 Points calculated: ${pointsCalculated} (${eventData.amount} KD / 10)`);
 
-    // Check if customer exists
+    // Check if customer exists (resilient to stored phone format)
     console.log(`[QB Rewards] 👤 Checking if customer exists in system...`);
-    const customerRecord = await db
-      .select()
-      .from(customers)
-      .where(eq(customers.phone, normalizedPhone))
-      .limit(1);
+    const customerRecord = await findCustomerByPhone(db, normalizedPhone);
 
     const customerId = customerRecord.length > 0 ? customerRecord[0].id : null;
     if (customerId) {
-      console.log(`[QB Rewards] ✅ Customer found in system: ID ${customerId}`);
+      console.log(`[QB Rewards] ✅ Customer found in system: ID ${customerId} (matched on last 8 digits)`);
     } else {
       console.log(`[QB Rewards] ℹ️ Customer NOT in system - will create pending reward`);
     }
 
-    // Log the sync attempt
-    const syncResult = await db.insert(qbPaymentSyncs).values({
-      qbInvoiceId: eventData.qbInvoiceId,
-      invoiceNumber: eventData.invoiceNumber,
-      customerPhone: normalizedPhone,
-      customerName: eventData.customerName,
-      amount: eventData.amount.toString(),
-      pointsCalculated,
-      status: "pending",
-      customerId,
-      webhookEventId: eventData.webhookEventId,
-    });
+    // Log the sync attempt (with DB-level duplicate protection)
+    let syncId: number;
+    try {
+      const syncResult = await db.insert(qbPaymentSyncs).values({
+        qbInvoiceId: eventData.qbInvoiceId,
+        invoiceNumber: eventData.invoiceNumber,
+        customerPhone: normalizedPhone,
+        customerName: eventData.customerName,
+        amount: eventData.amount.toString(),
+        pointsCalculated,
+        status: "pending",
+        customerId,
+        webhookEventId: eventData.webhookEventId,
+      });
+      syncId = (syncResult as any).insertId || 1;
+    } catch (dupErr: any) {
+      // DB-level UNIQUE constraint violation on qbInvoiceId
+      if (dupErr?.code === "ER_DUP_ENTRY" || dupErr?.message?.includes("Duplicate entry")) {
+        console.error(`[QB Rewards] ❌ DB DUPLICATE: QB invoice ${eventData.qbInvoiceId} already exists`);
+        return {
+          status: "duplicate",
+          error: "QB invoice already processed (DB constraint)",
+        };
+      }
+      throw dupErr;
+    }
 
-    const syncId = (syncResult as any).insertId || 1;
+
 
     if (customerId) {
       // Customer exists: auto-add points and send WhatsApp
@@ -160,31 +183,37 @@ export async function processQbPaymentEvent(eventData: {
             invoice_number: eventData.invoiceNumber,
           }
         );
-        
-        // Log the WhatsApp send
+
+        // Log the WhatsApp send (non-fatal — log errors but continue)
         const templateMessage = `Template: HXa2d8c4d852521f5ff648294c7dd28844 | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
-        if (whatsappResult.success) {
-          await logWhatsApp({
-            customerId,
-            phone: normalizedPhone,
-            messageBody: templateMessage,
-            messageType: "points_awarded",
-            status: "sent",
-            messageSid: whatsappResult.messageSid,
-            invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
-          });
-          console.log(`[QB Rewards] WhatsApp template sent to ${normalizedPhone} - SID: ${whatsappResult.messageSid}`);
-        } else {
-          await logWhatsApp({
-            customerId,
-            phone: normalizedPhone,
-            messageBody: templateMessage,
-            messageType: "points_awarded",
-            status: "failed",
-            errorMessage: whatsappResult.error,
-            invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
-          });
-          console.error(`[QB Rewards] WhatsApp template send failed: ${whatsappResult.error}`);
+        try {
+          if (whatsappResult.success) {
+            await logWhatsApp({
+              customerId,
+              phone: normalizedPhone,
+              messageBody: templateMessage,
+              messageType: "points_awarded",
+              status: "sent",
+              messageSid: whatsappResult.messageSid,
+              invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
+              twilioResponse: whatsappResult.twilioResponse,
+            });
+            console.log(`[QB Rewards] WhatsApp template sent to ${normalizedPhone} - SID: ${whatsappResult.messageSid}`);
+          } else {
+            await logWhatsApp({
+              customerId,
+              phone: normalizedPhone,
+              messageBody: templateMessage,
+              messageType: "points_awarded",
+              status: "failed",
+              errorMessage: whatsappResult.error,
+              invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
+              twilioResponse: whatsappResult.twilioResponse,
+            });
+            console.error(`[QB Rewards] WhatsApp template send failed: ${whatsappResult.error}`);
+          }
+        } catch (logErr: any) {
+          console.warn(`[QB Rewards] Failed to log WhatsApp message: ${logErr?.message}`);
         }
 
         // Mark sync as success
@@ -213,7 +242,7 @@ export async function processQbPaymentEvent(eventData: {
         // Create pending reward
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 90); // 90 days expiry
-        
+
         // Send signup invitation WhatsApp template
         const signupResult = await sendWhatsAppTemplate(
           normalizedPhone,
@@ -224,7 +253,7 @@ export async function processQbPaymentEvent(eventData: {
             invoice_number: eventData.invoiceNumber,
           }
         );
-        
+
         // Log the signup invitation WhatsApp
         const templateMessage = `Template: HXa2d8c4d852521f5ff648294c7dd28844 (signup) | Customer: ${eventData.customerName} | Points: ${pointsCalculated} | Invoice: ${eventData.invoiceNumber}`;
         if (signupResult.success) {
@@ -235,6 +264,7 @@ export async function processQbPaymentEvent(eventData: {
             status: "sent",
             messageSid: signupResult.messageSid,
             invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
+            twilioResponse: signupResult.twilioResponse,
           });
           console.log(`[QB Rewards] Signup template sent to ${normalizedPhone} - SID: ${signupResult.messageSid}`);
         } else {
@@ -245,6 +275,7 @@ export async function processQbPaymentEvent(eventData: {
             status: "failed",
             errorMessage: signupResult.error,
             invoiceId: eventData.qbInvoiceId ? parseInt(eventData.qbInvoiceId.replace(/\D/g, "")) || undefined : undefined,
+            twilioResponse: signupResult.twilioResponse,
           });
           console.error(`[QB Rewards] Signup template send failed: ${signupResult.error}`);
         }
@@ -265,7 +296,7 @@ export async function processQbPaymentEvent(eventData: {
           .set({ status: "success", processedAt: new Date() })
           .where(eq(qbPaymentSyncs.id, syncId));
 
-        console.log(`[QB Rewards] Pending reward created for ${normalizedPhone}: ${pointsCalculated} pts, WhatsApp template sent: ${signupResult.success}`);
+        console.log(`[QB Rewards] Pending reward created for ${normalizedPhone}: ${pointsCalculated} pts`);
         return {
           status: "success",
           pendingRewardId: (pendingResult as any).insertId || 1,
@@ -273,7 +304,7 @@ export async function processQbPaymentEvent(eventData: {
         };
       } catch (error) {
         console.error(`[QB Rewards] Error creating pending reward:`, error);
-        
+
         // Log the failed WhatsApp send
         const signupMsg = `Prime Rewards 💙\n\nYou earned ${pointsCalculated} points from your recent order.\n\nCreate your free account to view and redeem your rewards:\nhttps://primerewds.com`;
         try {
@@ -287,7 +318,7 @@ export async function processQbPaymentEvent(eventData: {
         } catch (logErr) {
           console.error(`[QB Rewards] Failed to log WhatsApp error:`, logErr);
         }
-        
+
         await db
           .update(qbPaymentSyncs)
           .set({
@@ -338,6 +369,8 @@ export async function processPendingWhatsAppQueue(): Promise<void> {
               status: "sent",
               messageSid: result.messageSid,
               retryCount: (log.retryCount || 0) + 1,
+              sentAt: new Date(),
+              twilioResponse: result.twilioResponse ? JSON.stringify(result.twilioResponse) : null,
             })
             .where(eq(whatsappLogs.id, log.id));
           console.log(`[QB Rewards Queue] WhatsApp ${log.id} sent successfully`);
@@ -376,22 +409,41 @@ export async function processPendingWhatsAppQueue(): Promise<void> {
 
 /**
  * Claim pending rewards when customer signs up
+ * (resilient to stored phone format)
  */
 export async function claimPendingRewards(customerId: number, phone: string): Promise<void> {
   try {
     const db = await getDb();
     if (!db) throw new Error("Database connection failed");
 
-    // Find all pending rewards for this phone
-    const pendingList = await db
+    const normalizedPhone = normalizeKuwaitPhone(phone) || phone;
+    const local8 = kuwaitLocal8(phone);
+
+    // Fast path: exact match on the normalized number
+    let pendingList = await db
       .select()
       .from(pendingRewards)
       .where(
         and(
-          eq(pendingRewards.phone, phone),
+          eq(pendingRewards.phone, normalizedPhone),
           eq(pendingRewards.status, "pending")
         )
       );
+
+    // Fallback: match on last 8 digits (handles any stored format)
+    if (pendingList.length === 0 && local8) {
+      const candidates = await db
+        .select()
+        .from(pendingRewards)
+        .where(
+          and(
+            like(pendingRewards.phone, `%${local8}`),
+            eq(pendingRewards.status, "pending")
+          )
+        )
+        .limit(50);
+      pendingList = candidates.filter((p: any) => kuwaitLocal8(p.phone) === local8);
+    }
 
     if (pendingList.length === 0) return;
 

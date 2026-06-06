@@ -1,0 +1,19 @@
+{
+  "query": "SELECT id, qbInvoiceId, invoiceNumber, customerPhone, amount, status, createdAt FROM qb_payment_syncs WHERE amount = 30.00 OR (customerPhone LIKE '%94493883%' AND amount = '30.00') ORDER BY createdAt DESC LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, qbInvoiceId, invoiceNumber, customerPhone, amount, status, createdAt FROM qb_payment_syncs WHERE amount = 30.00 OR (customerPhone LIKE '%94493883%' AND amount = '30.00') ORDER BY createdAt DESC LIMIT 3;",
+  "rows": [
+    {
+      "id": "510001",
+      "qbInvoiceId": "verify-001",
+      "invoiceNumber": "TEST",
+      "customerPhone": "+96565068000",
+      "amount": "30.00",
+      "status": "pending",
+      "createdAt": "2026-06-02 16:58:31"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tqbInvoiceId\tinvoiceNumber\tcustomerPhone\tamount\tstatus\tcreatedAt\n510001\tverify-001\tTEST\t+96565068000\t30.00\tpending\t2026-06-02 16:58:31\n",
+  "stderr": "",
+  "execution_time_ms": 4870
+}

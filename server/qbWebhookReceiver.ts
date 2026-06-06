@@ -3,6 +3,11 @@ import { Express, Request, Response } from "express";
 import { lookupQBInvoiceById, fetchQBCustomer, fetchQBPaymentLinkedInvoiceIds } from "./quickbooks";
 import { processQbPaymentEvent } from "./qbRewardsEngine";
 
+// NOTE: Signature validation requires the RAW request body. Your Express setup MUST
+// capture it, e.g.:
+//   app.use(express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf.toString(); } }));
+// Without this, every real QB webhook fails signature validation and is silently dropped.
+
 function validateSignature(req: Request): boolean {
   const token = process.env.QB_WEBHOOK_VERIFICATION_TOKEN;
   if (!token) {
@@ -14,7 +19,14 @@ function validateSignature(req: Request): boolean {
     console.error("[QB Webhook] ❌ Missing intuit-signature header");
     return false;
   }
-  const raw: string = (req as any).rawBody ?? JSON.stringify(req.body);
+  const raw: string | undefined = (req as any).rawBody;
+  if (!raw) {
+    console.error(
+      "[QB Webhook] ❌ rawBody not captured — signature cannot be verified. " +
+      "Add to server setup: app.use(express.json({ verify: (req,_res,buf) => { (req as any).rawBody = buf.toString(); } }))"
+    );
+    return false;
+  }
   const expected = crypto.createHmac("sha256", token).update(raw).digest("base64");
   if (expected !== sig) {
     console.error(`[QB Webhook] ❌ Signature mismatch  expected=${expected}  got=${sig}`);
@@ -75,8 +87,13 @@ async function processInvoiceId(entityId: string, realmId: string): Promise<void
 async function processPaymentId(entityId: string, realmId: string): Promise<void> {
   console.log(`\n[QB Webhook] 💳 Payment id=${entityId}  realm=${realmId}`);
   const ids = await fetchQBPaymentLinkedInvoiceIds(entityId);
-  if (ids.length === 0) { console.warn(`[QB Webhook] ⚠️  No linked invoices for payment ${entityId}`); return; }
-  for (const id of ids) { await processInvoiceId(id, realmId); }
+  if (ids.length === 0) {
+    console.warn(`[QB Webhook] ⚠️  No linked invoices for payment ${entityId}`);
+    return;
+  }
+  for (const id of ids) {
+    await processInvoiceId(id, realmId);
+  }
 }
 
 export function registerQbWebhookReceiver(app: Express): void {
@@ -90,6 +107,7 @@ export function registerQbWebhookReceiver(app: Express): void {
         if (!validateSignature(req)) return;
 
         const body = req.body as any;
+
         if (!Array.isArray(body?.eventNotifications)) {
           console.warn("[QB Webhook] ⚠️  Unrecognised payload — body keys:", Object.keys(body ?? {}));
           return;

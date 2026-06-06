@@ -1,0 +1,28 @@
+{
+  "query": "SELECT * FROM qb_payment_syncs ORDER BY createdAt DESC LIMIT 1; SELECT * FROM whatsapp_logs ORDER BY createdAt DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT * FROM qb_payment_syncs ORDER BY createdAt DESC LIMIT 1; SELECT * FROM whatsapp_logs ORDER BY createdAt DESC LIMIT 1;",
+  "rows": [
+    {
+      "id": "1050001",
+      "qbInvoiceId": "test-unblocked-1780608589008996431",
+      "invoiceNumber": "2512",
+      "customerPhone": "+96594493883",
+      "customerName": "CSKWT Unblocked",
+      "amount": "250.00",
+      "pointsCalculated": "25",
+      "status": "pending",
+      "customerId": "30001",
+      "errorMessage": "NULL",
+      "webhookEventId": "NULL",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-04 21:29:52"
+    }
+  ],
+  "messages": [
+    "id\tcustomerId\tphone\tmessageType\tmessageBody\tstatus\tmessageSid\terrorMessage\tretryCount\tinvoiceId\tsentAt\tcreatedAt\tdeliveredAt\ttwilioResponse",
+    "1140001\t30001\t+96594493883\tpoints_awarded\tTest message\tsent\tMM_TEST_SID\tNULL\t0\tNULL\t2026-06-04 21:30:07\t2026-06-04 21:30:07\tNULL\tNULL"
+  ],
+  "stdout": "id\tqbInvoiceId\tinvoiceNumber\tcustomerPhone\tcustomerName\tamount\tpointsCalculated\tstatus\tcustomerId\terrorMessage\twebhookEventId\tprocessedAt\tcreatedAt\n1050001\ttest-unblocked-1780608589008996431\t2512\t+96594493883\tCSKWT Unblocked\t250.00\t25\tpending\t30001\tNULL\tNULL\tNULL\t2026-06-04 21:29:52\nid\tcustomerId\tphone\tmessageType\tmessageBody\tstatus\tmessageSid\terrorMessage\tretryCount\tinvoiceId\tsentAt\tcreatedAt\tdeliveredAt\ttwilioResponse\n1140001\t30001\t+96594493883\tpoints_awarded\tTest message\tsent\tMM_TEST_SID\tNULL\t0\tNULL\t2026-06-04 21:30:07\t2026-06-04 21:30:07\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1988
+}

@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE `whatsapp_logs` \nADD COLUMN `sentAt_new` timestamp NULL AFTER `invoiceId`,\nADD COLUMN `deliveredAt_new` timestamp NULL AFTER `createdAt`,\nADD COLUMN `twilioResponse_new` text NULL AFTER `deliveredAt_new`;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute ALTER TABLE `whatsapp_logs` \nADD COLUMN `sentAt_new` timestamp NULL AFTER `invoiceId`,\nADD COLUMN `deliveredAt_new` timestamp NULL AFTER `createdAt`,\nADD COLUMN `twilioResponse_new` text NULL AFTER `deliveredAt_new`;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'deliveredat_new' in 'whatsapp_logs'"
+  ]
+}

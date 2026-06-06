@@ -1,0 +1,79 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "badges"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "campaigns"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "customer_badges"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "customers"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "failed_attempts"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "fraud_flags"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "invoice_registry"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "invoices"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "notifications"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "pending_customers"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "pending_rewards"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "point_transactions"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "qb_payment_syncs"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "qb_settings"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "qb_webhook_events"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "redemptions"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "rewards"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "spin_results"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "suspicious_accounts"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "users"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "whatsapp_logs"
+    },
+    {
+      "Tables_in_45yCshMdhCKkPUhGJzLrcU": "whatsapp_messages"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_45yCshMdhCKkPUhGJzLrcU\n__drizzle_migrations\nbadges\ncampaigns\ncustomer_badges\ncustomers\nfailed_attempts\nfraud_flags\ninvoice_registry\ninvoices\nnotifications\npending_customers\npending_rewards\npoint_transactions\nqb_payment_syncs\nqb_settings\nqb_webhook_events\nredemptions\nrewards\nspin_results\nsuspicious_accounts\nusers\nwhatsapp_logs\nwhatsapp_messages\n",
+  "stderr": "",
+  "execution_time_ms": 1850
+}

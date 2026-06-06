@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, qbInvoiceId, invoiceNumber, customerPhone, amount, status, processedAt, createdAt FROM qb_payment_syncs WHERE customerPhone LIKE '%94493883%' ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, qbInvoiceId, invoiceNumber, customerPhone, amount, status, processedAt, createdAt FROM qb_payment_syncs WHERE customerPhone LIKE '%94493883%' ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "1050001",
+      "qbInvoiceId": "test-unblocked-1780608589008996431",
+      "invoiceNumber": "2512",
+      "customerPhone": "+96594493883",
+      "amount": "250.00",
+      "status": "pending",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-04 21:29:52"
+    },
+    {
+      "id": "1020003",
+      "qbInvoiceId": "test-final-1780608439491739880",
+      "invoiceNumber": "2511",
+      "customerPhone": "+96594493883",
+      "amount": "200.00",
+      "status": "pending",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-04 21:27:23"
+    },
+    {
+      "id": "1020002",
+      "qbInvoiceId": "test-final-success-1780608384544533957",
+      "invoiceNumber": "2510",
+      "customerPhone": "+96594493883",
+      "amount": "150.00",
+      "status": "pending",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-04 21:26:28"
+    },
+    {
+      "id": "1020001",
+      "qbInvoiceId": "test-restart-1780608200799795353",
+      "invoiceNumber": "2509",
+      "customerPhone": "+96594493883",
+      "amount": "120.00",
+      "status": "pending",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-04 21:23:25"
+    },
+    {
+      "id": "990002",
+      "qbInvoiceId": "test-success-1780607856656166513",
+      "invoiceNumber": "2508",
+      "customerPhone": "+96594493883",
+      "amount": "100.00",
+      "status": "pending",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-04 21:17:39"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tqbInvoiceId\tinvoiceNumber\tcustomerPhone\tamount\tstatus\tprocessedAt\tcreatedAt\n1050001\ttest-unblocked-1780608589008996431\t2512\t+96594493883\t250.00\tpending\tNULL\t2026-06-04 21:29:52\n1020003\ttest-final-1780608439491739880\t2511\t+96594493883\t200.00\tpending\tNULL\t2026-06-04 21:27:23\n1020002\ttest-final-success-1780608384544533957\t2510\t+96594493883\t150.00\tpending\tNULL\t2026-06-04 21:26:28\n1020001\ttest-restart-1780608200799795353\t2509\t+96594493883\t120.00\tpending\tNULL\t2026-06-04 21:23:25\n990002\ttest-success-1780607856656166513\t2508\t+96594493883\t100.00\tpending\tNULL\t2026-06-04 21:17:39\n",
+  "stderr": "",
+  "execution_time_ms": 2500
+}

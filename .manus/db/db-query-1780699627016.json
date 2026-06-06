@@ -1,0 +1,64 @@
+{
+  "query": "SELECT id, fullName, phone, businessName FROM customers LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, fullName, phone, businessName FROM customers LIMIT 10;",
+  "rows": [
+    {
+      "id": "1",
+      "fullName": "Reem Alfaraj",
+      "phone": "65068000",
+      "businessName": "Prime Printing co"
+    },
+    {
+      "id": "30001",
+      "fullName": "Ahmad Al-Modayan",
+      "phone": "+96594493883",
+      "businessName": "CSKWT"
+    },
+    {
+      "id": "60001",
+      "fullName": "Butterfly Dreams",
+      "phone": "+96597517979",
+      "businessName": "Teta haloomy "
+    },
+    {
+      "id": "90001",
+      "fullName": "rawan almansor",
+      "phone": "+96597323373",
+      "businessName": "NULL"
+    },
+    {
+      "id": "120001",
+      "fullName": "Meme Al-Awadhi",
+      "phone": "+96596939371",
+      "businessName": "Lulu color"
+    },
+    {
+      "id": "150001",
+      "fullName": "Abdullah kh",
+      "phone": "+96595588558",
+      "businessName": "euphoria"
+    },
+    {
+      "id": "180001",
+      "fullName": "Gamoushh",
+      "phone": "+96565749084",
+      "businessName": "guwash"
+    },
+    {
+      "id": "210001",
+      "fullName": "Eqbal Alshammari",
+      "phone": "+96597870321",
+      "businessName": "HUS"
+    },
+    {
+      "id": "270001",
+      "fullName": "Ahmad Al-Modayan",
+      "phone": "NULL",
+      "businessName": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tfullName\tphone\tbusinessName\n1\tReem Alfaraj\t65068000\tPrime Printing co\n30001\tAhmad Al-Modayan\t+96594493883\tCSKWT\n60001\tButterfly Dreams\t+96597517979\tTeta haloomy \n90001\trawan almansor\t+96597323373\tNULL\n120001\tMeme Al-Awadhi\t+96596939371\tLulu color\n150001\tAbdullah kh\t+96595588558\teuphoria\n180001\tGamoushh\t+96565749084\tguwash\n210001\tEqbal Alshammari\t+96597870321\tHUS\n270001\tAhmad Al-Modayan\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1921
+}

@@ -10,6 +10,7 @@ import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { registerQbWebhookReceiver } from "../qbWebhookReceiver";
 import { registerQBRoutes } from "../qbRoutes";
+import { startQBPolling } from "../qbPolling";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -67,7 +68,9 @@ async function startServer() {
   }
 
   server.listen(port, () => {
+    console.log(`[BOOT] Server started with rebuilt code at ${new Date().toISOString()}`);
     console.log(`Server running on http://localhost:${port}/`);
+    startQBPolling();
   });
 }
 

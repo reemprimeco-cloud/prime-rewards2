@@ -1,0 +1,26 @@
+{
+  "query": "SELECT * FROM whatsapp_logs ORDER BY id DESC LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT * FROM whatsapp_logs ORDER BY id DESC LIMIT 1;",
+  "rows": [
+    {
+      "id": "1140001",
+      "customerId": "30001",
+      "phone": "+96594493883",
+      "messageType": "points_awarded",
+      "messageBody": "Test message",
+      "status": "sent",
+      "messageSid": "MM_TEST_SID",
+      "errorMessage": "NULL",
+      "retryCount": "0",
+      "invoiceId": "NULL",
+      "sentAt": "2026-06-04 21:30:07",
+      "createdAt": "2026-06-04 21:30:07",
+      "deliveredAt": "NULL",
+      "twilioResponse": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcustomerId\tphone\tmessageType\tmessageBody\tstatus\tmessageSid\terrorMessage\tretryCount\tinvoiceId\tsentAt\tcreatedAt\tdeliveredAt\ttwilioResponse\n1140001\t30001\t+96594493883\tpoints_awarded\tTest message\tsent\tMM_TEST_SID\tNULL\t0\tNULL\t2026-06-04 21:30:07\t2026-06-04 21:30:07\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1798
+}
