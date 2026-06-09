@@ -792,5 +792,29 @@ export async function resetInvoiceClaim(invoiceId: number) {
 }
 
 export async function getWhatsAppLogs(limit?: number, offset?: number) {
-  return [];
+  try {
+    const db = await getDb();
+    if (!db) return [];
+
+    const { whatsappLogs, customers } = await import("../drizzle/schema");
+    const { desc, eq: eqOp } = await import("drizzle-orm");
+
+    // Fetch logs with optional customer data
+    const logs = await db
+      .select({
+        log: whatsappLogs,
+        customer: customers,
+      })
+      .from(whatsappLogs)
+      .leftJoin(customers, eqOp(whatsappLogs.customerId, customers.id))
+      .orderBy(desc(whatsappLogs.createdAt))
+      .limit(limit ?? 100)
+      .offset(offset ?? 0);
+
+    console.log(`[WhatsApp Logs] Fetched ${logs.length} logs`);
+    return logs;
+  } catch (err) {
+    console.error("[WhatsApp Logs] Error fetching logs:", err);
+    return [];
+  }
 }

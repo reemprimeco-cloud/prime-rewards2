@@ -1,0 +1,58 @@
+{
+  "query": "SELECT id, phone, customerId, status, messageType, createdAt FROM whatsapp_logs \nWHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)\nORDER BY createdAt DESC\nLIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, phone, customerId, status, messageType, createdAt FROM whatsapp_logs \nWHERE createdAt >= DATE_SUB(NOW(), INTERVAL 24 HOUR)\nORDER BY createdAt DESC\nLIMIT 10;",
+  "rows": [
+    {
+      "id": "1470001",
+      "phone": "+96566361319",
+      "customerId": "NULL",
+      "status": "sent",
+      "messageType": "points_awarded",
+      "createdAt": "2026-06-09 16:38:38"
+    },
+    {
+      "id": "1440004",
+      "phone": "+96597870321",
+      "customerId": "210001",
+      "status": "sent",
+      "messageType": "points_awarded",
+      "createdAt": "2026-06-09 14:35:45"
+    },
+    {
+      "id": "1440003",
+      "phone": "+96566646366",
+      "customerId": "NULL",
+      "status": "sent",
+      "messageType": "points_awarded",
+      "createdAt": "2026-06-09 14:35:43"
+    },
+    {
+      "id": "1440002",
+      "phone": "+96550666350",
+      "customerId": "NULL",
+      "status": "sent",
+      "messageType": "points_awarded",
+      "createdAt": "2026-06-09 14:35:43"
+    },
+    {
+      "id": "1440001",
+      "phone": "+96550666350",
+      "customerId": "NULL",
+      "status": "sent",
+      "messageType": "points_awarded",
+      "createdAt": "2026-06-09 14:35:40"
+    },
+    {
+      "id": "1410001",
+      "phone": "+96550655856",
+      "customerId": "NULL",
+      "status": "sent",
+      "messageType": "points_awarded",
+      "createdAt": "2026-06-08 19:44:38"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tphone\tcustomerId\tstatus\tmessageType\tcreatedAt\n1470001\t+96566361319\tNULL\tsent\tpoints_awarded\t2026-06-09 16:38:38\n1440004\t+96597870321\t210001\tsent\tpoints_awarded\t2026-06-09 14:35:45\n1440003\t+96566646366\tNULL\tsent\tpoints_awarded\t2026-06-09 14:35:43\n1440002\t+96550666350\tNULL\tsent\tpoints_awarded\t2026-06-09 14:35:43\n1440001\t+96550666350\tNULL\tsent\tpoints_awarded\t2026-06-09 14:35:40\n1410001\t+96550655856\tNULL\tsent\tpoints_awarded\t2026-06-08 19:44:38\n",
+  "stderr": "",
+  "execution_time_ms": 1811
+}

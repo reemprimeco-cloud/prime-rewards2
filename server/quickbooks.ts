@@ -310,13 +310,27 @@ export async function exchangeQBCode(code: string): Promise<{ access_token: stri
     throw new Error("QB_CLIENT_ID or QB_CLIENT_SECRET not configured");
   }
 
+  // ═══ LIVE CREDENTIAL VERIFICATION ═══
+  const crypto = require("crypto");
+  const clientSecretHash = crypto.createHash("sha256").update(clientSecret).digest("hex").substring(0, 16);
+  console.log(`[QB OAuth] ═══ EXCHANGING CODE FOR TOKENS ═══`);
+  console.log(`[QB OAuth] Client ID: ${clientId}`);
+  console.log(`[QB OAuth] Client Secret SHA256 fingerprint: ${clientSecretHash}`);
+  console.log(`[QB OAuth] Redirect URI: ${redirectUri}`);
+  console.log(`[QB OAuth] Token Endpoint: ${QB_TOKEN_URL}`);
+  console.log(`[QB OAuth] Authorization Code: ${code.substring(0, 20)}...`);
+
   const body = new URLSearchParams({
     grant_type: "authorization_code",
     code,
     redirect_uri: redirectUri,
   });
 
+  console.log(`[QB OAuth] Request Body: ${body.toString()}`);
+  console.log(`[QB OAuth] Redirect URI in body: ${redirectUri}`);
+
   const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  console.log(`[QB OAuth] Basic Auth (first 30 chars): ${auth.substring(0, 30)}...`);
   const res = await fetch(QB_TOKEN_URL, {
     method: "POST",
     headers: {
@@ -326,12 +340,17 @@ export async function exchangeQBCode(code: string): Promise<{ access_token: stri
     body: body.toString(),
   });
 
+  const responseText = await res.text();
+  console.log(`[QB OAuth] ═══ INTUIT RESPONSE ═══`);
+  console.log(`[QB OAuth] Status: ${res.status}`);
+  console.log(`[QB OAuth] Body: ${responseText}`);
+  console.log(`[QB OAuth] Headers:`, Object.fromEntries(res.headers.entries()));
+
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`QB OAuth error ${res.status}: ${text}`);
+    throw new Error(`QB OAuth error ${res.status}: ${responseText}`);
   }
 
-  const data = await res.json();
+  const data = JSON.parse(responseText);
   return {
     access_token: data.access_token,
     refresh_token: data.refresh_token,

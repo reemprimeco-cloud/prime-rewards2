@@ -50,8 +50,18 @@ export async function sendWhatsAppTemplate(
   const authToken  = ENV.twilioAuthToken;
   const msgSvcSid  = ENV.twilioMessagingServiceSid;
 
+  console.log("=== WHATSAPP DEBUG ===");
+  console.log("Customer Phone:", toPhone);
+  console.log("MessagingServiceSid:", msgSvcSid);
+  console.log("ContentSid:", contentSid);
+  console.log("ContentVariables:", templateParams);
+  console.log("======================");
+
   if (!accountSid || !authToken || !msgSvcSid) {
     console.warn("[WhatsApp] Twilio credentials not configured — skipping");
+    console.warn("[WhatsApp] accountSid:", accountSid ? "SET" : "MISSING");
+    console.warn("[WhatsApp] authToken:", authToken ? "SET" : "MISSING");
+    console.warn("[WhatsApp] msgSvcSid:", msgSvcSid ? "SET" : "MISSING");
     return { success: false, error: "Twilio not configured" };
   }
 
@@ -77,7 +87,12 @@ export async function sendWhatsAppTemplate(
     body.append("ContentVariables", JSON.stringify(vars));
   }
 
-  console.log(`[WhatsApp] Sending "${contentSid}" to ${normalised}  vars=${JSON.stringify(vars)}`);
+  console.log(`[WhatsApp] ═══ SENDING WHATSAPP TEMPLATE ═══`);
+  console.log(`[WhatsApp] ContentSid: ${contentSid}`);
+  console.log(`[WhatsApp] To: ${to}`);
+  console.log(`[WhatsApp] Template Variables: ${JSON.stringify(vars)}`);
+  console.log(`[WhatsApp] MessagingServiceSid: ${msgSvcSid}`);
+  console.log(`[WhatsApp] Request Body: ${body.toString()}`);
 
   try {
     const res = await fetch(
@@ -95,11 +110,18 @@ export async function sendWhatsAppTemplate(
     const data = await res.json() as Record<string, any>;
 
     if (!res.ok) {
-      console.error(`[WhatsApp] ❌ Twilio ${res.status}: ${data.error_message}`);
+      console.error(`[WhatsApp] ═══ TWILIO ERROR ═══`);
+      console.error(`[WhatsApp] Status: ${res.status}`);
+      console.error(`[WhatsApp] Error Code: ${data.code}`);
+      console.error(`[WhatsApp] Error Message: ${data.error_message}`);
+      console.error(`[WhatsApp] Full Response: ${JSON.stringify(data)}`);
       return { success: false, error: data.error_message ?? `HTTP ${res.status}`, twilioResponse: data };
     }
 
-    console.log(`[WhatsApp] ✅ Sent — SID: ${data.sid}`);
+    console.log(`[WhatsApp] ═══ SUCCESS ═══`);
+    console.log(`[WhatsApp] Message SID: ${data.sid}`);
+    console.log(`[WhatsApp] Status: ${data.status}`);
+    console.log(`[WhatsApp] Full Response: ${JSON.stringify(data)}`);
     return { success: true, messageSid: data.sid, twilioResponse: data };
   } catch (err: any) {
     console.error(`[WhatsApp] Network error: ${err?.message}`);

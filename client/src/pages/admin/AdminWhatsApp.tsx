@@ -30,7 +30,10 @@ export default function AdminWhatsApp() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [resendingId, setResendingId] = useState<number | null>(null);
 
-  const { data: logs, isLoading, refetch } = trpc.whatsappLogs.list.useQuery({ limit: 300 });
+  const { data: logs, isLoading, refetch } = trpc.whatsappLogs.list.useQuery(
+    { limit: 300 },
+    { refetchOnWindowFocus: false, staleTime: 0 }
+  );
   const resendMutation = trpc.whatsappLogs.resend.useMutation({
     onSuccess: (_data, vars) => {
       toast.success("Message resent — delivery in progress");
@@ -75,8 +78,12 @@ export default function AdminWhatsApp() {
             <p className="text-sm text-gray-500 mt-0.5">All notifications sent via the official Prime Rewards sender</p>
           </div>
           <button
-            onClick={() => refetch()}
-            className="flex items-center gap-1.5 text-sm text-[#1B2A5E] bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
+            onClick={() => {
+              refetch();
+              toast.success("Refreshing logs...");
+            }}
+            disabled={isLoading}
+            className="flex items-center gap-1.5 text-sm text-[#1B2A5E] bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
@@ -187,7 +194,7 @@ export default function AdminWhatsApp() {
                       {/* Info */}
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-sm text-gray-800 truncate">
-                          {customer?.fullName ?? "Unknown"}
+                          {customer?.fullName ?? log.phone ?? "Unknown"}
                         </div>
                         <div className="text-xs text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                           <span className="font-mono">{log.phone}</span>

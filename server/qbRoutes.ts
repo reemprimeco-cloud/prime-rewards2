@@ -32,14 +32,21 @@ export function registerQBRoutes(app: Express) {
   app.get("/api/qb/callback", async (req, res) => {
     const { code, realmId, error } = req.query as Record<string, string>;
 
+    console.log("[QB Callback] ═══ RECEIVED OAUTH CALLBACK ═══");
+    console.log("[QB Callback] Query params:", { code: code?.substring(0, 20) + "...", realmId, error });
+    console.log("[QB Callback] Full URL:", req.originalUrl);
+
     if (error) {
+      console.error("[QB Callback] Error from Intuit:", error);
       return res.redirect(`/admin/settings?qb_error=${encodeURIComponent(error)}`);
     }
     if (!code || !realmId) {
+      console.error("[QB Callback] Missing params - code:", !!code, "realmId:", !!realmId);
       return res.redirect("/admin/settings?qb_error=missing_params");
     }
 
     try {
+      console.log("[QB Callback] Calling exchangeQBCode with code length:", code.length);
       const tokens = await exchangeQBCode(code);
 
       const db = await getDb();

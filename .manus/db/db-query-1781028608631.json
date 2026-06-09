@@ -1,0 +1,45 @@
+{
+  "query": "SELECT id, phone, customerId, status, createdAt FROM whatsapp_logs LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, phone, customerId, status, createdAt FROM whatsapp_logs LIMIT 5;",
+  "rows": [
+    {
+      "id": "1",
+      "phone": "00965 97517979",
+      "customerId": "60001",
+      "status": "sent",
+      "createdAt": "2026-05-24 09:20:05"
+    },
+    {
+      "id": "30001",
+      "phone": "65068000",
+      "customerId": "1",
+      "status": "sent",
+      "createdAt": "2026-05-24 09:39:17"
+    },
+    {
+      "id": "60001",
+      "phone": "00965 97517979",
+      "customerId": "60001",
+      "status": "sent",
+      "createdAt": "2026-05-25 12:49:38"
+    },
+    {
+      "id": "90001",
+      "phone": "65068000",
+      "customerId": "1",
+      "status": "sent",
+      "createdAt": "2026-05-25 23:26:29"
+    },
+    {
+      "id": "90002",
+      "phone": "65068000",
+      "customerId": "1",
+      "status": "sent",
+      "createdAt": "2026-05-25 23:26:30"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tphone\tcustomerId\tstatus\tcreatedAt\n1\t00965 97517979\t60001\tsent\t2026-05-24 09:20:05\n30001\t65068000\t1\tsent\t2026-05-24 09:39:17\n60001\t00965 97517979\t60001\tsent\t2026-05-25 12:49:38\n90001\t65068000\t1\tsent\t2026-05-25 23:26:29\n90002\t65068000\t1\tsent\t2026-05-25 23:26:30\n",
+  "stderr": "",
+  "execution_time_ms": 1763
+}

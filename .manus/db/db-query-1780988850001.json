@@ -1,0 +1,70 @@
+{
+  "query": "SELECT * FROM qb_payment_syncs WHERE customerName LIKE '%reem%' OR customerName LIKE '%alfaraj%' ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT * FROM qb_payment_syncs WHERE customerName LIKE '%reem%' OR customerName LIKE '%alfaraj%' ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "1320001",
+      "qbInvoiceId": "9286",
+      "invoiceNumber": "2535",
+      "customerPhone": "+96550655856",
+      "customerName": "reem alfaraj",
+      "amount": "1.00",
+      "pointsCalculated": "0",
+      "status": "pending",
+      "customerId": "NULL",
+      "errorMessage": "NULL",
+      "webhookEventId": "NULL",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-08 19:44:35"
+    },
+    {
+      "id": "1260001",
+      "qbInvoiceId": "9274",
+      "invoiceNumber": "2532",
+      "customerPhone": "+96550655856",
+      "customerName": "reem alfaraj",
+      "amount": "1.00",
+      "pointsCalculated": "0",
+      "status": "pending",
+      "customerId": "NULL",
+      "errorMessage": "NULL",
+      "webhookEventId": "NULL",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-08 11:26:34"
+    },
+    {
+      "id": "1230001",
+      "qbInvoiceId": "9272",
+      "invoiceNumber": "2531",
+      "customerPhone": "+96550655856",
+      "customerName": "reem alfaraj",
+      "amount": "3.00",
+      "pointsCalculated": "0",
+      "status": "pending",
+      "customerId": "NULL",
+      "errorMessage": "NULL",
+      "webhookEventId": "NULL",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-08 10:35:34"
+    },
+    {
+      "id": "1080001",
+      "qbInvoiceId": "9263",
+      "invoiceNumber": "2529",
+      "customerPhone": "+96550655856",
+      "customerName": "reem alfaraj",
+      "amount": "23.00",
+      "pointsCalculated": "2",
+      "status": "pending",
+      "customerId": "NULL",
+      "errorMessage": "NULL",
+      "webhookEventId": "NULL",
+      "processedAt": "NULL",
+      "createdAt": "2026-06-07 08:17:37"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tqbInvoiceId\tinvoiceNumber\tcustomerPhone\tcustomerName\tamount\tpointsCalculated\tstatus\tcustomerId\terrorMessage\twebhookEventId\tprocessedAt\tcreatedAt\n1320001\t9286\t2535\t+96550655856\treem alfaraj\t1.00\t0\tpending\tNULL\tNULL\tNULL\tNULL\t2026-06-08 19:44:35\n1260001\t9274\t2532\t+96550655856\treem alfaraj\t1.00\t0\tpending\tNULL\tNULL\tNULL\tNULL\t2026-06-08 11:26:34\n1230001\t9272\t2531\t+96550655856\treem alfaraj\t3.00\t0\tpending\tNULL\tNULL\tNULL\tNULL\t2026-06-08 10:35:34\n1080001\t9263\t2529\t+96550655856\treem alfaraj\t23.00\t2\tpending\tNULL\tNULL\tNULL\tNULL\t2026-06-07 08:17:37\n",
+  "stderr": "",
+  "execution_time_ms": 1832
+}

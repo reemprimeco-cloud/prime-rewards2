@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE qb_settings SET refreshToken = 'RT1-127-H0-1789719451cyratwmc5r7enq7c3h9k', accessToken = 'eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwieC5vcmciOiJIMCJ9.DirEncrypted.EncryptedData', expiresAt = DATE_ADD(NOW(), INTERVAL 60 DAY), updatedAt = NOW() WHERE id = (SELECT MAX(id) FROM qb_settings);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute UPDATE qb_settings SET refreshToken = 'RT1-127-H0-1789719451cyratwmc5r7enq7c3h9k', accessToken = 'eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwieC5vcmciOiJIMCJ9.DirEncrypted.EncryptedData', expiresAt = DATE_ADD(NOW(), INTERVAL 60 DAY), updatedAt = NOW() WHERE id = (SELECT MAX(id) FROM qb_settings);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1910
+}
