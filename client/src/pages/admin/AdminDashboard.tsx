@@ -2,7 +2,7 @@ import { trpc } from "@/lib/trpc";
 import AdminLayout from "@/components/AdminLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion } from "framer-motion";
-import { Users, FileText, Gift, AlertTriangle, TrendingUp, Clock, Award, BarChart2 } from "lucide-react";
+import { Users, FileText, Gift, AlertTriangle, TrendingUp, Clock, Award, BarChart2, Bell } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 const TIER_COLORS = {
@@ -15,6 +15,7 @@ const TIER_COLORS = {
 export default function AdminDashboard() {
   const { t, language } = useLanguage();
   const { data: analytics, isLoading } = trpc.admin.analytics.useQuery();
+  const { data: unreadNotifications } = trpc.adminNotifications.unreadCount.useQuery();
 
   const tierData = analytics?.tierCounts?.map(t => ({
     name: t.tier,
@@ -64,6 +65,13 @@ export default function AdminDashboard() {
       icon: AlertTriangle,
       color: "#EF4444",
       bg: "bg-red-50",
+    },
+    {
+      label: language === "ar" ? "إشعارات بالانتظار" : "Pending Notifications",
+      value: unreadNotifications ?? 0,
+      icon: Bell,
+      color: "#F59E0B",
+      bg: "bg-amber-50",
     },
   ];
 

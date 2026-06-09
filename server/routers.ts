@@ -58,6 +58,9 @@ import {
   deleteFromRegistry,
   getRegistry,
   lookupRegistry,
+  getAdminNotifications,
+  markAdminNotificationRead,
+  getUnreadAdminNotificationCount,
 } from "./db";
 import { claimPendingRewards } from "./qbRewardsEngine";
 import { eq, count, desc, and, gte } from "drizzle-orm";
@@ -915,6 +918,22 @@ export const appRouter = router({
       await seedDefaultRewards();
       return { success: true };
     }),
+  }),
+
+  // ─── Admin Notifications ───────────────────────────────────────────────────────
+  adminNotifications: router({
+    list: adminProcedure
+      .input(z.object({ limit: z.number().default(50), offset: z.number().default(0) }))
+      .query(({ input }) => getAdminNotifications(input.limit, input.offset)),
+
+    unreadCount: adminProcedure.query(() => getUnreadAdminNotificationCount()),
+
+    markRead: adminProcedure
+      .input(z.object({ notificationId: z.number() }))
+      .mutation(async ({ input }) => {
+        await markAdminNotificationRead(input.notificationId);
+        return { success: true };
+      }),
   }),
 
   // ─── WhatsApp Logs ─────────────────────────────────────────────────────────────

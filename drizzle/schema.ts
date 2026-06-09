@@ -266,3 +266,19 @@ export const pendingRewards = mysqlTable("pending_rewards", {
 
 export type PendingReward = typeof pendingRewards.$inferSelect;
 export type InsertPendingReward = typeof pendingRewards.$inferInsert;
+
+// ─── Admin Notifications ───────────────────────────────────────────────────────
+export const adminNotifications = mysqlTable("admin_notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  type: mysqlEnum("type", ["reward_claimed", "suspicious_activity", "payment_received", "system_alert"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  customerId: int("customerId"),
+  rewardId: int("rewardId"),
+  relatedData: json("relatedData"), // Store extra context as JSON
+  isRead: boolean("isRead").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AdminNotification = typeof adminNotifications.$inferSelect;
+export type InsertAdminNotification = typeof adminNotifications.$inferInsert;

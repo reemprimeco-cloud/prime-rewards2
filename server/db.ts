@@ -15,6 +15,7 @@ import {
   notifications,
   fraudFlags,
   whatsappLogs,
+  adminNotifications,
   type WhatsappLog,
   type InsertWhatsappLog,
   type Customer,
@@ -376,6 +377,16 @@ export async function redeemReward(customerId: number, rewardId: number) {
   await addPoints(customerId, -reward[0].requiredPoints, "redeem", `Redeemed: ${reward[0].name}`, rewardId, "reward");
   await createNotification(customerId, "reward_redeemed", "Reward Redeemed!", `You've successfully redeemed "${reward[0].name}". Your coupon code is: ${couponCode}`);
 
+  // Create admin notification for reward claim
+  await db.insert(adminNotifications).values({
+    type: "reward_claimed",
+    title: `Reward Claimed: ${reward[0].name}`,
+    message: `${customer.fullName} (${customer.phone || "No phone"}) claimed the reward "${reward[0].name}" using coupon code ${couponCode}`,
+    customerId,
+    rewardId,
+    relatedData: JSON.stringify({ couponCode, customerName: customer.fullName, customerPhone: customer.phone }),
+  });
+
   return { couponCode, reward: reward[0] };
 }
 
@@ -470,16 +481,35 @@ export async function checkAndAwardBadges(customerId: number) {
 }
 
 // ─── Spin Wheel ────────────────────────────────────────────────────────────────
+/**
+ * Milestone-based spin eligibility:
+ * - 1 free spin on first registration
+ * - 1 free spin for every 5 approved invoices
+ * Example: 0 invoices = 1 spin available (welcome), 5 invoices = 2 spins available, 10 invoices = 3 spins available
+ */
 export async function canSpinToday(customerId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
-  const result = await db
+
+  // Count approved invoices for this customer
+  const invoiceResult = await db
+    .select({ count: count() })
+    .from(invoices)
+    .where(and(eq(invoices.customerId, customerId), eq(invoices.status, "approved")));
+  const approvedInvoiceCount = invoiceResult[0]?.count ?? 0;
+
+  // Calculate total spins earned: 1 (welcome) + floor(approvedInvoiceCount / 5)
+  const totalSpinsEarned = 1 + Math.floor(approvedInvoiceCount / 5);
+
+  // Count spins already used
+  const spinResult = await db
     .select({ count: count() })
     .from(spinResults)
-    .where(and(eq(spinResults.customerId, customerId), gte(spinResults.spunAt, dayStart)));
-  return (result[0]?.count ?? 0) === 0;
+    .where(eq(spinResults.customerId, customerId));
+  const totalSpinsUsed = spinResult[0]?.count ?? 0;
+
+  // Can spin if spins remaining > 0
+  return totalSpinsEarned > totalSpinsUsed;
 }
 
 export async function performSpin(customerId: number) {
@@ -760,7 +790,41 @@ export async function updateRegistry(id: number, data: any) {
 }
 
 export async function getSpinEligibility(customerId: number) {
-  return { eligible: true };
+  const db = await getDb();
+  if (!db) return { canSpin: false, totalSpinsEarned: 0, totalSpinsUsed: 0, spinsRemaining: 0, approvedInvoiceCount: 0, nextUnlockAt: 5, isWelcomeSpin: false };
+
+  // Count approved invoices
+  const invoiceResult = await db
+    .select({ count: count() })
+    .from(invoices)
+    .where(and(eq(invoices.customerId, customerId), eq(invoices.status, "approved")));
+  const approvedInvoiceCount = invoiceResult[0]?.count ?? 0;
+
+  // Calculate spins earned and used
+  const totalSpinsEarned = 1 + Math.floor(approvedInvoiceCount / 5);
+  const spinResult = await db
+    .select({ count: count() })
+    .from(spinResults)
+    .where(eq(spinResults.customerId, customerId));
+  const totalSpinsUsed = spinResult[0]?.count ?? 0;
+  const spinsRemaining = totalSpinsEarned - totalSpinsUsed;
+
+  // Calculate next unlock threshold
+  const lastMilestone = Math.floor(approvedInvoiceCount / 5) * 5;
+  const nextUnlockAt = lastMilestone + 5;
+
+  // Is this the welcome spin? (0 spins used and 0 approved invoices)
+  const isWelcomeSpin = totalSpinsUsed === 0 && approvedInvoiceCount === 0;
+
+  return {
+    canSpin: spinsRemaining > 0,
+    totalSpinsEarned,
+    totalSpinsUsed,
+    spinsRemaining,
+    approvedInvoiceCount,
+    nextUnlockAt,
+    isWelcomeSpin,
+  };
 }
 
 export async function tryAutoApprove(invoiceId: number) {
@@ -817,4 +881,38 @@ export async function getWhatsAppLogs(limit?: number, offset?: number) {
     console.error("[WhatsApp Logs] Error fetching logs:", err);
     return [];
   }
+}
+
+// ─── Admin Notifications ───────────────────────────────────────────────────────
+export async function getAdminNotifications(limit = 50, offset = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      notification: adminNotifications,
+      customer: customers,
+      reward: rewards,
+    })
+    .from(adminNotifications)
+    .leftJoin(customers, eq(adminNotifications.customerId, customers.id))
+    .leftJoin(rewards, eq(adminNotifications.rewardId, rewards.id))
+    .orderBy(desc(adminNotifications.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function markAdminNotificationRead(notificationId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(adminNotifications).set({ isRead: true }).where(eq(adminNotifications.id, notificationId));
+}
+
+export async function getUnreadAdminNotificationCount() {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db
+    .select({ count: count() })
+    .from(adminNotifications)
+    .where(eq(adminNotifications.isRead, false));
+  return result[0]?.count ?? 0;
 }

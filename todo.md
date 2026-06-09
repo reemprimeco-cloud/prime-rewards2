@@ -198,3 +198,18 @@
 - [x] Test with real QB payment and verify WhatsApp logs show real customer (Reem alfaraj, +96565068000)
 - [x] Ensure QB webhook ONLY sends WhatsApp if real QB customer data exists
 - [x] Abort send if customer name is "Unknown" or phone is missing
+
+## Phase 17: Milestone-Based Spin & Reward Claim Notifications
+
+- [x] Update SpinWheel UI: Change "Daily Spin & Win" title to "Loyalty Spin"
+- [x] Update spin eligibility text to show "1st time + every 5 invoices" instead of "daily"
+- [x] Update backend milestone logic: canSpinToday() checks approved invoice count
+- [x] Update getSpinEligibility() to return full spin data (earned, used, remaining, welcome spin flag)
+- [x] Create admin_notifications table in database schema
+- [x] Create reward_claimed notification trigger when customer claims a reward
+- [x] Add admin notification system: Alert owner when reward is claimed
+- [x] Add admin Notifications page to view reward claims and other alerts
+- [x] Add admin notifications router with list, unreadCount, markRead endpoints
+- [x] Add admin notifications link to AdminLayout navigation
+- [ ] Test milestone spin with multiple invoice scenarios (1st, 5th, 10th invoice)
+- [ ] Test reward claim notification delivery
