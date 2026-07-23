@@ -1,9 +1,0 @@
-{
-  "query": "ALTER TABLE `whatsapp_logs` MODIFY COLUMN `status` enum('sent','failed','pending','retrying','queued','delivered','read','undelivered') NOT NULL DEFAULT 'pending';\nALTER TABLE `pending_rewards` ADD CONSTRAINT `uk_pending_rewards_phone_invoice` UNIQUE(`phone`,`invoiceNumber`);\nALTER TABLE `qb_payment_syncs` ADD CONSTRAINT `qb_payment_syncs_qbInvoiceId_unique` UNIQUE(`qbInvoiceId`);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute ALTER TABLE `whatsapp_logs` MODIFY COLUMN `status` enum('sent','failed','pending','retrying','queued','delivered','read','undelivered') NOT NULL DEFAULT 'pending';\nALTER TABLE `pending_rewards` ADD CONSTRAINT `uk_pending_rewards_phone_invoice` UNIQUE(`phone`,`invoiceNumber`);\nALTER TABLE `qb_payment_syncs` ADD CONSTRAINT `qb_payment_syncs_qbInvoiceId_unique` UNIQUE(`qbInvoiceId`);",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 2971
-}

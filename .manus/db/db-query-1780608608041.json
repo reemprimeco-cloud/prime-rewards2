@@ -1,9 +1,0 @@
-{
-  "query": "INSERT INTO `whatsapp_logs` \n(`id`, `customerId`, `phone`, `messageType`, `messageBody`, `status`, `messageSid`, `errorMessage`, `retryCount`, `invoiceId`, `createdAt`) \nVALUES (default, 30001, '+96594493883', 'points_awarded', 'Test message', 'sent', 'MM_TEST_SID', NULL, 0, NULL, default);",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute INSERT INTO `whatsapp_logs` \n(`id`, `customerId`, `phone`, `messageType`, `messageBody`, `status`, `messageSid`, `errorMessage`, `retryCount`, `invoiceId`, `createdAt`) \nVALUES (default, 30001, '+96594493883', 'points_awarded', 'Test message', 'sent', 'MM_TEST_SID', NULL, 0, NULL, default);",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 1939
-}

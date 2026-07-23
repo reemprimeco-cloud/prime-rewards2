@@ -1,0 +1,58 @@
+# =============================================================================
+# PRIME REWARDS — Environment Variables
+# Rename this file to .env and fill in all values before running the project.
+# =============================================================================
+
+# APPLICATION
+APP_BASE_URL=https://yourdomain.com
+NODE_ENV=development
+PORT=3000
+
+# DATABASE (MySQL)
+DATABASE_URL=mysql://user:password@host:3306/prime_rewards
+
+# AUTHENTICATION
+# JWT_SECRET: long random string (32+ chars) for signing session cookies
+JWT_SECRET=replace_with_a_very_long_random_secret_string
+
+# OAuth2 provider — replace with your own (Auth0, Keycloak, etc.)
+# See MIGRATION_GUIDE.md for instructions on replacing the auth system
+OAUTH_SERVER_URL=https://your-oauth-server.example.com
+VITE_APP_ID=your_oauth_client_id
+OWNER_OPEN_ID=your_admin_user_open_id
+VITE_OAUTH_PORTAL_URL=https://your-login-page.example.com
+
+# FILE STORAGE — replace with AWS S3 (see MIGRATION_GUIDE.md)
+BUILT_IN_FORGE_API_URL=https://your-s3-endpoint.example.com
+BUILT_IN_FORGE_API_KEY=your_s3_api_key
+VITE_FRONTEND_FORGE_API_URL=https://your-s3-endpoint.example.com
+VITE_FRONTEND_FORGE_API_KEY=your_frontend_s3_api_key
+
+# AWS S3 (when using direct S3 after migration)
+# AWS_REGION=us-east-1
+# AWS_ACCESS_KEY_ID=your_access_key
+# AWS_SECRET_ACCESS_KEY=your_secret_key
+# AWS_S3_BUCKET=your_bucket_name
+
+# QUICKBOOKS ONLINE
+QUICKBOOKS_CLIENT_ID=your_quickbooks_client_id
+QUICKBOOKS_CLIENT_SECRET=your_quickbooks_client_secret
+QUICKBOOKS_ENVIRONMENT=production
+QUICKBOOKS_REALM_ID=your_realm_id
+QUICKBOOKS_REDIRECT_URI=https://yourdomain.com/api/qb/callback
+QUICKBOOKS_REFRESH_TOKEN=your_refresh_token
+QB_WEBHOOK_VERIFICATION_TOKEN=your_webhook_verification_token
+QB_CLIENT_ID=your_quickbooks_client_id
+QB_CLIENT_SECRET=your_quickbooks_client_secret
+
+# TWILIO (WhatsApp)
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_twilio_auth_token
+TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_REWARD_CONTENT_SID=HXxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# BRANDING
+VITE_APP_TITLE=Prime Rewards
+VITE_APP_LOGO=https://your-cdn.example.com/logo.png

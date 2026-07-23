@@ -1,9 +1,0 @@
-{
-  "query": "SELECT id, invoiceNumber, customerPhone, customerName, amount, pointsCalculated, status, createdAt FROM qb_payment_syncs WHERE customerPhone LIKE '%97979054%' ORDER BY id DESC LIMIT 10;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT id, invoiceNumber, customerPhone, customerName, amount, pointsCalculated, status, createdAt FROM qb_payment_syncs WHERE customerPhone LIKE '%97979054%' ORDER BY id DESC LIMIT 10;",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 1761
-}

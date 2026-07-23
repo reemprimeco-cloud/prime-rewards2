@@ -1,9 +1,0 @@
-{
-  "query": "DELETE FROM qb_payment_syncs WHERE qbInvoiceId = 'test-final-1';\nDELETE FROM whatsapp_logs WHERE phone = '+96565068000' AND createdAt > NOW() - INTERVAL 10 MINUTE;",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute DELETE FROM qb_payment_syncs WHERE qbInvoiceId = 'test-final-1';\nDELETE FROM whatsapp_logs WHERE phone = '+96565068000' AND createdAt > NOW() - INTERVAL 10 MINUTE;",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 1846
-}

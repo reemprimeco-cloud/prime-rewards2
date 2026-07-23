@@ -1,9 +1,0 @@
-{
-  "query": "UPDATE qb_settings \nSET \n  accessToken = 'eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwieC5vcmciOiJIMCJ9..q00uxCVclU3xBZ8cWHW1-Q.dmif4iRpxhbOMafup9zxk8nD3UwjRupDqXEIJy-LVIqdy96wA8TZLgh9dx_tv5zZVpw6Ud4eV9a8xf_q8WUH7fqsUD7kW8MMNthqpY9my6zCT48SgdIt3NOuWXiAfQJwYcZh3OurJp3w-2onRll9-j9dQldMwDolLq44zdA6HO288EwHH0vV349Jm2ly3hgoeJqhhZIGwdhZcH4dikWTToUT9npEX5brNlCivvMszVGAHBHR-5gDEXTXSIPfA4JRV2wUNXSPhRNidh86ODuohHm-vGc51zze4vatKGhKVRxG0cCKdbMalRPJFhnH2U-aHJKbE4n_Ds43mFj-x5xWDlCNcnDYTfYcISeJW5HGTVAyrmPHQHiFEn-XNP0oi2nAMymXYlgsIBBOCZUgziXZLiLHDVVBKE2cY-0WoqvLWjTLdNr5FCUEsTzX7PT9ZvcnXCgjQOmr3fJJHVzeKRD0bR-tZg2MCCOSrCcHMKQNcg4.t9_dN7sJ5UHO7NuRSdtv3A',\n  refreshToken = 'RT1-156-H0-17893129283ywq4gu97e7d0fd53lyb',\n  expiresAt = '2026-09-13 18:08:00'\nWHERE realmId = '9130357945907536';",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute UPDATE qb_settings \nSET \n  accessToken = 'eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwieC5vcmciOiJIMCJ9..q00uxCVclU3xBZ8cWHW1-Q.dmif4iRpxhbOMafup9zxk8nD3UwjRupDqXEIJy-LVIqdy96wA8TZLgh9dx_tv5zZVpw6Ud4eV9a8xf_q8WUH7fqsUD7kW8MMNthqpY9my6zCT48SgdIt3NOuWXiAfQJwYcZh3OurJp3w-2onRll9-j9dQldMwDolLq44zdA6HO288EwHH0vV349Jm2ly3hgoeJqhhZIGwdhZcH4dikWTToUT9npEX5brNlCivvMszVGAHBHR-5gDEXTXSIPfA4JRV2wUNXSPhRNidh86ODuohHm-vGc51zze4vatKGhKVRxG0cCKdbMalRPJFhnH2U-aHJKbE4n_Ds43mFj-x5xWDlCNcnDYTfYcISeJW5HGTVAyrmPHQHiFEn-XNP0oi2nAMymXYlgsIBBOCZUgziXZLiLHDVVBKE2cY-0WoqvLWjTLdNr5FCUEsTzX7PT9ZvcnXCgjQOmr3fJJHVzeKRD0bR-tZg2MCCOSrCcHMKQNcg4.t9_dN7sJ5UHO7NuRSdtv3A',\n  refreshToken = 'RT1-156-H0-17893129283ywq4gu97e7d0fd53lyb',\n  expiresAt = '2026-09-13 18:08:00'\nWHERE realmId = '9130357945907536';",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 1842
-}

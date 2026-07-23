@@ -1,9 +1,0 @@
-{
-  "query": "UPDATE qb_settings \nSET \n  refreshToken = 'RT1-156-H0-17893129283ywq4gu97e7d0fd53lyb',\n  expiresAt = '2026-09-13 18:08:00'\nWHERE realmId = '9130357945907536';",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute UPDATE qb_settings \nSET \n  refreshToken = 'RT1-156-H0-17893129283ywq4gu97e7d0fd53lyb',\n  expiresAt = '2026-09-13 18:08:00'\nWHERE realmId = '9130357945907536';",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 1895
-}

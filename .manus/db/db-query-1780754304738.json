@@ -1,9 +1,0 @@
-{
-  "query": "SELECT status, messageSid FROM whatsapp_logs WHERE invoiceId = '2528';",
-  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway06.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4xeK7FVQkXBtxe6.root --database 45yCshMdhCKkPUhGJzLrcU --execute SELECT status, messageSid FROM whatsapp_logs WHERE invoiceId = '2528';",
-  "rows": [],
-  "messages": [],
-  "stdout": "",
-  "stderr": "",
-  "execution_time_ms": 1811
-}
